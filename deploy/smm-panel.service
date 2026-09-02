@@ -1,0 +1,21 @@
+[Unit]
+Description=SMM Panel - Next.js App (smm.kuygas.my.id)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=padsu
+WorkingDirectory=/home/padsu/scripts/smm-panel
+Environment=NODE_ENV=production
+Environment=PORT=3001
+Environment=HOSTNAME=127.0.0.1
+ExecStart=/home/padsu/.local/bin/node /home/padsu/scripts/smm-panel/.next/standalone/server.js
+Restart=on-failure
+RestartSec=5
+# Basic hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

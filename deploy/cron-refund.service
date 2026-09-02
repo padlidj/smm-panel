@@ -1,0 +1,12 @@
+[Unit]
+Description=SMM Panel - Cron: Refund Error/Partial Orders
+After=network.target
+
+[Service]
+Type=oneshot
+User=padsu
+WorkingDirectory=/home/padsu/scripts/smm-panel
+ExecStart=/home/padsu/scripts/smm-panel/node_modules/.bin/tsx /home/padsu/scripts/smm-panel/cron/refund.ts
+
+[Install]
+WantedBy=multi-user.target
