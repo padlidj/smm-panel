@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, ShoppingCart, CreditCard, Ticket, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, CreditCard, Ticket, Settings, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
 const menuItems = [
@@ -22,6 +22,7 @@ const menuItems = [
     { href: '/dashboard/ticket/list', label: 'My Tickets' },
     { href: '/dashboard/ticket/new', label: 'New Ticket' },
   ]},
+  { href: '/dashboard/service/favorites', label: 'Favorites', icon: Star, children: [] },
   { href: '/dashboard/account/profile', label: 'Account', icon: Settings, children: [
     { href: '/dashboard/account/profile', label: 'Profile' },
     { href: '/dashboard/account/settings', label: 'Settings' },
