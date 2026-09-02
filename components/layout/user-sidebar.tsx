@@ -9,9 +9,10 @@ const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/order/new', label: 'Order', icon: ShoppingCart, children: [
     { href: '/dashboard/order/new', label: 'New Order' },
+    { href: '/dashboard/order/bulk', label: 'Bulk Order' },
     { href: '/dashboard/order/history', label: 'Order History' },
     { href: '/dashboard/order/refill/history', label: 'Refill History' },
-  ]},
+  ] },
   { href: '/dashboard/deposit/new', label: 'Deposit', icon: CreditCard, children: [
     { href: '/dashboard/deposit/new', label: 'New Deposit' },
     { href: '/dashboard/deposit/history', label: 'Deposit History' },

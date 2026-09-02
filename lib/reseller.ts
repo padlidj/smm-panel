@@ -4,7 +4,7 @@ import { prisma } from './prisma';
 export async function getApiUser(req: Request) {
   const url = new URL(req.url);
   let key = url.searchParams.get('api_key') || '';
-  if (!key) key = req.headers.get('api_key') || '';
+  if (!key) key = req.headers.get('api_key') || req.headers.get('x-api-key') || '';
   if (!key) {
     const auth = req.headers.get('authorization') || '';
     if (auth.startsWith('Bearer ')) key = auth.slice(7);
