@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Toast } from '@/components/ui/toast';
 
-export function OrderNewClient({ categories, services, balance }: any) {
+export function OrderNewClient({ categories, services, customPrices = {}, balance }: any) {
   const router = useRouter();
   const [categoryId, setCategoryId] = useState('');
   const [serviceId, setServiceId] = useState('');
@@ -21,7 +21,9 @@ export function OrderNewClient({ categories, services, balance }: any) {
 
   const filtered = useMemo(() => services.filter((s: any) => !categoryId || s.category_id === Number(categoryId)), [categoryId, services]);
   const service = filtered.find((s: any) => s.id === Number(serviceId));
-  const totalPrice = service ? Math.ceil((Number(service.price) / 1000) * Number(quantity || 0)) : 0;
+  const cp = service ? customPrices[service.id] : null;
+  const rate = cp ? Number(cp.price) : service ? Number(service.price) : 0;
+  const totalPrice = service ? Math.ceil((rate / 1000) * Number(quantity || 0)) : 0;
 
   const submit = async () => {
     setError('');
@@ -68,12 +70,12 @@ export function OrderNewClient({ categories, services, balance }: any) {
             <label className="text-sm font-medium">Service</label>
             <Select value={serviceId} onChange={e => setServiceId(e.target.value)} disabled={!categoryId}>
               <option value="">Select service</option>
-              {filtered.map((s: any) => <option key={s.id} value={s.id}>{s.name} - Rp {Number(s.price).toLocaleString('id-ID')}/1K</option>)}
+              {filtered.map((s: any) => <option key={s.id} value={s.id}>{s.name} - Rp {Number(s.price).toLocaleString('id-ID')}/1K{customPrices[s.id] ? ' (*Khusus)' : ''}</option>)}
             </Select>
           </div>
           {service && (
             <div className="rounded-md border bg-muted/50 p-3 text-sm space-y-1">
-              <p><span className="text-muted-foreground">Price:</span> Rp {Number(service.price).toLocaleString('id-ID')} / 1000</p>
+              <p><span className="text-muted-foreground">Price:</span> Rp {rate.toLocaleString('id-ID')} / 1000 {cp && <span className="text-primary font-semibold">(*Khusus)</span>}</p>
               <p><span className="text-muted-foreground">Min/Max:</span> {service.min} - {service.max}</p>
               {service.description && <p><span className="text-muted-foreground">Desc:</span> {service.description}</p>}
               {service.type === 'SUBSCRIPTIONS' && <p className="text-muted-foreground">Fill target with your profile URL.</p>}

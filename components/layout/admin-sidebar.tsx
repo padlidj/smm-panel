@@ -20,7 +20,10 @@ const menuItems = [
   { href: '/admin/deposit/list', label: 'Deposit', icon: CreditCard },
   { href: '/admin/ticket/list', label: 'Ticket', icon: Ticket },
   { href: '/admin/admin/list', label: 'Admin', icon: Shield },
-  { href: '/admin/settings/website', label: 'Settings', icon: Settings },
+  { href: '/admin/settings/website', label: 'Settings', icon: Settings, children: [
+    { href: '/admin/settings/website', label: 'Website' },
+    { href: '/admin/settings/test-email', label: 'Test Email' },
+  ]},
   { href: '/admin/log/user/login', label: 'Logs', icon: Logs, children: [
     { href: '/admin/log/user/login', label: 'User Login' },
     { href: '/admin/log/user/balance', label: 'User Balance' },
