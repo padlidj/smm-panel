@@ -1,0 +1,413 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BANNED
+  UNVERIFIED
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  ERROR
+  PARTIAL
+}
+
+enum RefillStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  ERROR
+}
+
+enum DepositStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  EXPIRED
+}
+
+enum DepositMethodType {
+  MANUAL
+  AUTO
+}
+
+enum TicketStatus {
+  OPEN
+  REPLIED
+  CLOSED
+}
+
+enum BalanceType {
+  PLUS
+  MINUS
+}
+
+enum LoginLogType {
+  USER
+  ADMIN
+}
+
+enum LoginLogStatus {
+  SUCCESS
+  FAILED
+}
+
+enum AdminLevel {
+  ADMIN
+  SUPERADMIN
+}
+
+enum ServiceType {
+  DEFAULT
+  COMMENT_LIKES
+  CUSTOM_COMMENTS
+  SUBSCRIPTIONS
+}
+
+enum Currency {
+  IDR
+  USD
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  username        String    @unique
+  email           String    @unique
+  password        String
+  full_name       String?
+  balance         Decimal   @default(0) @db.Decimal(15, 0)
+  role            UserRole  @default(USER)
+  status          UserStatus @default(UNVERIFIED)
+  api_key         String?
+  api_whitelist_ips String?
+  notification    Json      @default("{\"order\":\"1\"}")
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  orders          Order[]
+  order_refills   OrderRefill[]
+  deposits        Deposit[]
+  tickets         Ticket[]
+  ticket_replies  TicketReply[]
+  balance_logs    BalanceLog[]
+  custom_prices   CustomPrice[]
+  service_favorites ServiceFavorite[]
+  service_logs    ServiceLog[]
+  login_logs      LoginLog[] @relation("UserLoginLogs")
+
+  @@map("users")
+}
+
+model Admin {
+  id         Int        @id @default(autoincrement())
+  username   String     @unique
+  email      String     @unique
+  password   String
+  level      AdminLevel @default(ADMIN)
+  status     Boolean    @default(true)
+  created_at DateTime   @default(now())
+  updated_at DateTime   @updatedAt
+
+  @@map("admins")
+}
+
+model ServiceCategory {
+  id         Int      @id @default(autoincrement())
+  name       String
+  status     Boolean  @default(true)
+  created_at DateTime @default(now())
+
+  services   Service[]
+
+  @@map("service_categories")
+}
+
+model ServiceProvider {
+  id                   Int      @id @default(autoincrement())
+  name                 String   @unique
+  provider_id          String
+  provider_key         String
+  provider_secret      String?
+  status               Boolean  @default(true)
+  is_refill_support    Boolean  @default(false)
+  profile_config       Json?
+  order_config         Json?
+  status_config        Json?
+  service_config       Json?
+  refill_config        Json?
+  refill_status_config Json?
+  currency             Currency @default(IDR)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  services             Service[]
+  orders               Order[]
+  service_logs         ServiceLog[]
+
+  @@map("service_providers")
+}
+
+model Service {
+  id                      Int         @id @default(autoincrement())
+  category_id             Int
+  provider_id             Int
+  name                    String
+  type                    ServiceType @default(DEFAULT)
+  price                   Int
+  profit                  Int
+  min                     Int
+  max                     Int
+  description             String?
+  status                  Boolean     @default(true)
+  provider_service_id     String?
+  refill_provider_service_id String?
+  created_at              DateTime    @default(now())
+  updated_at              DateTime    @updatedAt
+
+  category                ServiceCategory @relation(fields: [category_id], references: [id])
+  provider                ServiceProvider @relation(fields: [provider_id], references: [id])
+  orders                  Order[]
+  custom_prices           CustomPrice[]
+  service_favorites       ServiceFavorite[]
+  service_logs            ServiceLog[]
+
+  @@map("services")
+}
+
+model Order {
+  id                  Int         @id @default(autoincrement())
+  user_id             Int
+  service_id          Int
+  provider_id         Int
+  service_name        String
+  target              String
+  quantity            Int
+  price               Decimal     @db.Decimal(15, 0)
+  profit              Decimal     @db.Decimal(15, 0)
+  remains             Int         @default(0)
+  start_count         Int         @default(0)
+  status              OrderStatus @default(PENDING)
+  is_refund           Boolean     @default(false)
+  is_api              Boolean     @default(false)
+  provider_order_id   String?
+  provider_order_log  String?
+  provider_status_log String?
+  custom_comments     String?
+  username            String?
+  ip_address          String?
+  location            String?
+  created_at          DateTime    @default(now())
+  updated_at          DateTime    @updatedAt
+
+  user                User        @relation(fields: [user_id], references: [id])
+  service             Service     @relation(fields: [service_id], references: [id])
+  service_provider    ServiceProvider @relation(fields: [provider_id], references: [id])
+  order_refills       OrderRefill[]
+
+  @@map("orders")
+}
+
+model OrderRefill {
+  id                  Int          @id @default(autoincrement())
+  order_id            Int
+  user_id             Int
+  target              String
+  quantity            Int
+  price               Decimal      @db.Decimal(15, 0)
+  profit              Decimal      @db.Decimal(15, 0)
+  status              RefillStatus @default(PENDING)
+  provider_refill_id  String?
+  created_at          DateTime     @default(now())
+  updated_at          DateTime     @updatedAt
+
+  order               Order        @relation(fields: [order_id], references: [id])
+  user                User         @relation(fields: [user_id], references: [id])
+
+  @@map("order_refills")
+}
+
+model Deposit {
+  id                Int           @id @default(autoincrement())
+  user_id           Int
+  amount            Decimal       @db.Decimal(15, 0)
+  fee               Decimal       @default(0) @db.Decimal(15, 0)
+  net               Decimal       @db.Decimal(15, 0)
+  method            String
+  status            DepositStatus @default(PENDING)
+  midtrans_order_id String?
+  snap_token        String?
+  snap_redirect_url String?
+  ip_address        String?
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt
+
+  user              User          @relation(fields: [user_id], references: [id])
+
+  @@map("deposits")
+}
+
+model DepositMethod {
+  id           Int              @id @default(autoincrement())
+  payment      String
+  method       String
+  type         DepositMethodType
+  min          Decimal          @db.Decimal(15, 0)
+  max          Decimal          @db.Decimal(15, 0)
+  fee_percent  Decimal          @default(0) @db.Decimal(5, 2)
+  status       Boolean          @default(true)
+  created_at   DateTime         @default(now())
+
+  @@map("deposit_methods")
+}
+
+model Ticket {
+  id         Int          @id @default(autoincrement())
+  user_id    Int
+  subject    String
+  message    String
+  status     TicketStatus @default(OPEN)
+  created_at DateTime     @default(now())
+  updated_at DateTime     @updatedAt
+
+  user       User         @relation(fields: [user_id], references: [id])
+  replies    TicketReply[]
+
+  @@map("tickets")
+}
+
+model TicketReply {
+  id         Int      @id @default(autoincrement())
+  ticket_id  Int
+  user_id    Int?
+  is_admin   Boolean  @default(false)
+  message    String
+  created_at DateTime @default(now())
+
+  ticket     Ticket   @relation(fields: [ticket_id], references: [id])
+  user       User?    @relation(fields: [user_id], references: [id])
+
+  @@map("ticket_replies")
+}
+
+model BalanceLog {
+  id             Int         @id @default(autoincrement())
+  user_id        Int
+  type           BalanceType
+  action         String
+  amount         Decimal     @db.Decimal(15, 0)
+  balance_before Decimal     @db.Decimal(15, 0)
+  balance_after  Decimal     @db.Decimal(15, 0)
+  description    String?
+  created_at     DateTime    @default(now())
+
+  user           User        @relation(fields: [user_id], references: [id])
+
+  @@map("balance_logs")
+}
+
+model CustomPrice {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  service_id Int
+  price      Decimal  @db.Decimal(15, 0)
+  profit     Decimal  @db.Decimal(15, 0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user       User     @relation(fields: [user_id], references: [id])
+  service    Service  @relation(fields: [service_id], references: [id])
+
+  @@unique([user_id, service_id])
+  @@map("custom_prices")
+}
+
+model ServiceFavorite {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  service_id Int
+  created_at DateTime @default(now())
+
+  user       User     @relation(fields: [user_id], references: [id])
+  service    Service  @relation(fields: [service_id], references: [id])
+
+  @@unique([user_id, service_id])
+  @@map("service_favorites")
+}
+
+model ServiceLog {
+  id          Int      @id @default(autoincrement())
+  user_id     Int?
+  service_id  Int
+  provider_id Int
+  logs        String
+  created_at  DateTime @default(now())
+
+  service     Service  @relation(fields: [service_id], references: [id])
+  provider    ServiceProvider @relation(fields: [provider_id], references: [id])
+  user        User?    @relation(fields: [user_id], references: [id])
+
+  @@map("service_logs")
+}
+
+model LoginLog {
+  id         Int            @id @default(autoincrement())
+  user_id    Int?
+  username   String
+  type       LoginLogType
+  ip_address String
+  user_agent String?
+  location   String?
+  status     LoginLogStatus
+  created_at DateTime       @default(now())
+
+  user       User?          @relation("UserLoginLogs", fields: [user_id], references: [id])
+
+  @@map("login_logs")
+}
+
+model WebsiteConfig {
+  id         Int      @id @default(autoincrement())
+  key        String   @unique
+  value      Json
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("website_configs")
+}
+
+model WebsiteInformation {
+  id         Int      @id @default(autoincrement())
+  title      String
+  content    String
+  status     Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("website_informations")
+}
+
+model WebsitePage {
+  id         Int      @id @default(autoincrement())
+  title      String
+  slug       String   @unique
+  content    String
+  status     Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("website_pages")
+}
