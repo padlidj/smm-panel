@@ -66,6 +66,11 @@ export function ProviderListClient({ providers }: any) {
                   <TableCell className="flex gap-2">
                     <Link href={`/admin/service/provider/form/${p.id}`}><Button variant="secondary" size="sm">Edit</Button></Link>
                     <Button variant="secondary" size="sm" onClick={() => toggle(p)}>Toggle</Button>
+                    <Button variant="secondary" size="sm" onClick={async () => {
+                      const res = await fetch(`/api/admin/provider/sync/${p.id}`, { method: 'POST' });
+                      const json = await res.json();
+                      setBalance(prev => ({ ...prev, [p.id]: res.ok ? `Synced ${json.count} services` : json.error }));
+                    }}>Sync</Button>
                   </TableCell>
                 </TableRow>
               ))}
