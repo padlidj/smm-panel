@@ -1,29 +1,26 @@
-import { withAuth } from 'next-auth/middleware';
-import { NextResponse } from 'next/server';
+import { getToken } from 'next-auth/jwt';
+import { NextRequest, NextResponse } from 'next/server';
 
-export default withAuth(
-  function middleware(req) {
-    const token = req.nextauth.token;
-    const path = req.nextUrl.pathname;
+export async function middleware(req: NextRequest) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const path = req.nextUrl.pathname;
 
-    if (path.startsWith('/admin') && token?.role !== 'admin') {
-      return NextResponse.redirect(new URL('/auth/login', req.url));
-    }
+  // Build public-facing origin from proxy headers (behind nginx)
+  const proto = req.headers.get('x-forwarded-proto') || 'https';
+  const host = req.headers.get('x-forwarded-host') || req.nextUrl.host;
+  const base = `${proto}://${host}`;
 
-    return NextResponse.next();
-  },
-  {
-    callbacks: {
-      authorized: ({ token, req }) => {
-        const path = req.nextUrl.pathname;
-        if (path.startsWith('/dashboard') || path.startsWith('/admin')) {
-          return !!token;
-        }
-        return true;
-      },
-    },
-  },
-);
+  if (path.startsWith('/dashboard') && !token) {
+    return NextResponse.redirect(new URL('/auth/login', base));
+  }
+
+  if (path.startsWith('/admin')) {
+    if (!token) return NextResponse.redirect(new URL('/auth/login', base));
+    if (token.role !== 'admin') return NextResponse.redirect(new URL('/auth/login', base));
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: ['/dashboard/:path*', '/admin/:path*'],

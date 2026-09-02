@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
 import { Toast } from '@/components/ui/toast';
 import { Loading } from '@/components/ui/loading';
 
@@ -14,7 +13,6 @@ export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [type, setType] = useState<'user' | 'admin'>('user');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -23,22 +21,33 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    const res = await signIn('credentials', {
+    // Try user login first
+    let res = await signIn('credentials', {
       username,
       password,
-      type,
+      type: 'user',
       redirect: false,
     });
+
+    if (res?.error) {
+      // Try admin login
+      res = await signIn('credentials', {
+        username,
+        password,
+        type: 'admin',
+        redirect: false,
+      });
+    }
 
     setLoading(false);
 
     if (res?.error) {
-      setError('Username, password, atau tipe tidak valid');
+      setError('Username atau password tidak valid');
       return;
     }
 
-    if (type === 'admin') {
-      router.push('/admin');
+    if (res?.url) {
+      router.push(res.url);
     } else {
       router.push('/dashboard');
     }
@@ -59,13 +68,6 @@ export default function LoginPage() {
           <div className="space-y-2">
             <label className="text-sm font-medium">Password</label>
             <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Tipe Login</label>
-            <Select value={type} onChange={e => setType(e.target.value as 'user' | 'admin')}>
-              <option value="user">Pengguna</option>
-              <option value="admin">Admin</option>
-            </Select>
           </div>
           {error && <Toast type="error" message={error} />}
           <Button type="submit" className="w-full" disabled={loading}>
