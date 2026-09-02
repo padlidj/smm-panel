@@ -30,13 +30,20 @@ export const authOptions: NextAuthOptions = {
             });
             return { id: String(admin.id), name: admin.username, email: admin.email, role: 'admin', level: admin.level };
           }
+          await prisma.loginLog.create({ data: { username: admin.username, type: 'ADMIN', ip_address: ip, user_agent: ua, status: 'FAILED' } }).catch(() => {});
         }
 
         // Then user
         const user = await prisma.user.findUnique({ where: { username: credentials.username } });
-        if (!user || user.status === 'BANNED') return null;
+        if (!user || user.status === 'BANNED') {
+          await prisma.loginLog.create({ data: { username: credentials.username, type: 'USER', ip_address: ip, user_agent: ua, status: 'FAILED' } }).catch(() => {});
+          return null;
+        }
         const valid = await bcrypt.compare(credentials.password, user.password);
-        if (!valid) return null;
+        if (!valid) {
+          await prisma.loginLog.create({ data: { user_id: user.id, username: user.username, type: 'USER', ip_address: ip, user_agent: ua, status: 'FAILED' } }).catch(() => {});
+          return null;
+        }
 
         // ponytail: no location lookup. Add geoip when needed.
         await prisma.loginLog.create({
