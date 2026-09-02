@@ -12,6 +12,7 @@ const menuItems = [
     { href: '/dashboard/order/bulk', label: 'Bulk Order' },
     { href: '/dashboard/order/history', label: 'Order History' },
     { href: '/dashboard/order/refill/history', label: 'Refill History' },
+    { href: '/dashboard/order/monitoring', label: 'Monitoring' },
   ] },
   { href: '/dashboard/deposit/new', label: 'Deposit', icon: CreditCard, children: [
     { href: '/dashboard/deposit/new', label: 'New Deposit' },
