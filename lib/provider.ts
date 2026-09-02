@@ -165,6 +165,133 @@ export async function checkProviderStatus(provider: any, order: any) {
   }
 }
 
+// ponytail: mirrors executeProviderOrder. Add when refill providers need merge logic.
+export async function executeProviderRefill(provider: any, refill: any) {
+  try {
+    const config = provider.refill_config || {};
+    const endpoint = config.endpoint || provider.endpoint?.refill;
+    if (!endpoint) return { success: false, error: 'No refill endpoint' };
+
+    const replace = (v: any): any => {
+      if (typeof v === 'string') {
+        return v
+          .replace(/{service_id}/g, refill.order?.service?.provider_service_id || '')
+          .replace(/{refill_service_id}/g, refill.order?.service?.refill_provider_service_id || refill.order?.service?.provider_service_id || '')
+          .replace(/{target}/g, refill.target)
+          .replace(/{quantity}/g, String(refill.quantity))
+          .replace(/{order_id}/g, refill.order?.provider_order_id || '')
+          .replace(/{refill_id}/g, String(refill.id));
+      }
+      if (Array.isArray(v)) return v.map(replace);
+      if (v && typeof v === 'object') {
+        const o: any = {};
+        for (const [k, val] of Object.entries(v)) o[k] = replace(val);
+        return o;
+      }
+      return v;
+    };
+
+    const body = replace(config.body || {});
+    const isFormData = config.content_type === 'application/x-www-form-urlencoded';
+    let reqBody: string, contentType: string;
+    if (isFormData) {
+      const params = new URLSearchParams();
+      for (const [k, v] of Object.entries(body)) params.set(k, String(v));
+      reqBody = params.toString();
+      contentType = 'application/x-www-form-urlencoded';
+    } else {
+      reqBody = JSON.stringify(body);
+      contentType = 'application/json';
+    }
+    const headers: Record<string, string> = { 'Content-Type': contentType, ...(config.headers || {}) };
+    for (const [k, v] of Object.entries(headers)) {
+      headers[k] = String(v).replace(/{api_key}/g, provider.provider_key).replace(/{api_secret}/g, provider.provider_secret || '');
+    }
+
+    const res = await fetch(endpoint, { method: 'POST', headers, body: reqBody });
+    const data = await res.json();
+
+    const refillPath = config.response?.refill?.refill_id || config.response?.refill_id || 'refill_id';
+    const providerRefillId = get(data, refillPath) || null;
+    await prisma.orderRefill.update({
+      where: { id: refill.id },
+      data: {
+        provider_refill_id: providerRefillId ? String(providerRefillId) : null,
+        status: 'PROCESSING',
+      },
+    });
+    return { success: true, provider_refill_id: providerRefillId, response: data };
+  } catch (e: any) {
+    await prisma.orderRefill.update({
+      where: { id: refill.id },
+      data: { status: 'ERROR' },
+    });
+    return { success: false, error: e.message };
+  }
+}
+
+// ponytail: mirrors checkProviderStatus for orders. Add when refill providers need different response parsing.
+export async function checkRefillStatus(provider: any, refill: any) {
+  try {
+    const config = provider.refill_status_config || provider.status_config || {};
+    const endpoint = config.endpoint || provider.endpoint?.refill_status || provider.endpoint?.status;
+    if (!endpoint || !refill.provider_refill_id) return null;
+
+    const replace = (v: any): any => {
+      if (typeof v === 'string') {
+        return v
+          .replace(/{refill_id}/g, refill.provider_refill_id)
+          .replace(/{order_id}/g, refill.order?.provider_order_id || '')
+          .replace(/{provider_id}/g, provider.provider_id || '')
+          .replace(/{api_key}/g, provider.provider_key || '')
+          .replace(/{api_secret}/g, provider.provider_secret || '')
+          .replace(/{key}/g, provider.provider_key || '');
+      }
+      if (Array.isArray(v)) return v.map(replace);
+      if (v && typeof v === 'object') {
+        const o: any = {};
+        for (const [k, val] of Object.entries(v)) o[k] = replace(val);
+        return o;
+      }
+      return v;
+    };
+
+    const bodyTemplate = config.body || config.request || {};
+    const body = replace(bodyTemplate);
+    const isFormData = config.content_type === 'application/x-www-form-urlencoded' || !config.content_type;
+    let reqBody: string, contentType: string;
+    if (isFormData) {
+      const params = new URLSearchParams();
+      for (const [k, v] of Object.entries(body)) params.set(k, String(v));
+      reqBody = params.toString();
+      contentType = 'application/x-www-form-urlencoded';
+    } else {
+      reqBody = JSON.stringify(body);
+      contentType = 'application/json';
+    }
+    const headers: Record<string, string> = { 'Content-Type': contentType, ...(config.headers || {}) };
+    for (const [k, v] of Object.entries(headers)) {
+      headers[k] = String(v).replace(/{api_key}/g, provider.provider_key).replace(/{api_secret}/g, provider.provider_secret || '');
+    }
+
+    const res = await fetch(endpoint, { method: 'POST', headers, body: reqBody });
+    const data = await res.json();
+    if (!res.ok) return null;
+
+    const resp = config.response || {};
+    const statusValue = get(data, resp.status || 'status') ?? null;
+    let mappedStatus: string | null = null;
+    if (statusValue !== null) {
+      const sv = String(statusValue).toLowerCase();
+      for (const [status, vals] of Object.entries(config.status_value || {})) {
+        const list = Array.isArray(vals) ? vals : [vals];
+        if (list.some((v) => String(v).toLowerCase() === sv)) { mappedStatus = status.toUpperCase(); break; }
+      }
+    }
+    return { status: mappedStatus, raw: data };
+  } catch { return null; }
+}
+
 // ponytail: price stored as-is (provider per-1000 rate, no margin). Add margin config when resellers need markup.
 export async function syncProviderServices(provider: any) {
   try {

@@ -10,16 +10,26 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         username: { label: 'Username', type: 'text' },
         password: { label: 'Password', type: 'password' },
-        type: { label: 'Type', type: 'text' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.username || !credentials?.password) return null;
+
+        const ip = req?.headers?.['x-forwarded-for']?.split(',')[0]?.trim()
+          || req?.headers?.['x-real-ip']
+          || req?.headers?.['host']?.split(':')[0]
+          || '0.0.0.0';
+        const ua = req?.headers?.['user-agent'] || '';
 
         // Try admin first
         const admin = await prisma.admin.findUnique({ where: { username: credentials.username } });
         if (admin && admin.status) {
           const valid = await bcrypt.compare(credentials.password, admin.password);
-          if (valid) return { id: String(admin.id), name: admin.username, email: admin.email, role: 'admin', level: admin.level };
+          if (valid) {
+            await prisma.loginLog.create({
+              data: { username: admin.username, type: 'ADMIN', ip_address: ip, user_agent: ua, status: 'SUCCESS' },
+            });
+            return { id: String(admin.id), name: admin.username, email: admin.email, role: 'admin', level: admin.level };
+          }
         }
 
         // Then user
@@ -27,6 +37,12 @@ export const authOptions: NextAuthOptions = {
         if (!user || user.status === 'BANNED') return null;
         const valid = await bcrypt.compare(credentials.password, user.password);
         if (!valid) return null;
+
+        // ponytail: no location lookup. Add geoip when needed.
+        await prisma.loginLog.create({
+          data: { user_id: user.id, username: user.username, type: 'USER', ip_address: ip, user_agent: ua, status: 'SUCCESS' },
+        });
+
         return { id: String(user.id), name: user.username, email: user.email, role: 'user', balance: Number(user.balance) };
       },
     }),

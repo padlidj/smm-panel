@@ -54,6 +54,9 @@ export default function LoginPage() {
             <label className="text-sm font-medium">Password</label>
             <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
           </div>
+          <div className="text-right text-sm">
+            <a href="/auth/forgot" className="text-muted-foreground hover:text-primary">Lupa password?</a>
+          </div>
           {error && <Toast type="error" message={error} />}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? <Loading label="Memproses..." /> : 'Masuk'}

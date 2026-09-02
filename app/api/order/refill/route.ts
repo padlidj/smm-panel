@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { debitBalance } from '@/lib/balance';
+import { executeProviderRefill } from '@/lib/provider';
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -31,5 +32,15 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.json({ status: true, refill_id: refill.id, message: 'Refill berhasil dibuat.' });
+  // Auto-submit to provider when configured (skip MANUAL)
+  const provider = await prisma.serviceProvider.findUnique({ where: { id: order.provider_id } });
+  if (provider && provider.name !== 'MANUAL' && (provider.refill_config as any)?.endpoint) {
+    const full = await prisma.orderRefill.findUnique({
+      where: { id: refill.id },
+      include: { order: { include: { service: true } } },
+    });
+    if (full) await executeProviderRefill(provider, full);
+  }
+
+  return NextResponse.json({ status: true, data: { id: refill.id, order_id: order.id, quantity, price: totalPrice, status: 'PENDING' }, message: 'Refill berhasil dibuat.' });
 }
