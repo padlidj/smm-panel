@@ -22,5 +22,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: true, message: 'Pengaturan disimpan.' });
   }
 
+  if (body.api_whitelist_ips !== undefined) {
+    await prisma.user.update({ where: { id: userId }, data: { api_whitelist_ips: String(body.api_whitelist_ips).trim() } });
+    return NextResponse.json({ status: true, message: 'Whitelist IP disimpan.' });
+  }
+
   return NextResponse.json({ status: false, message: 'No action specified.' });
 }

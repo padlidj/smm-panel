@@ -10,7 +10,7 @@ export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
   const user = await prisma.user.findUnique({
     where: { id: Number((session?.user as any)?.id) },
-    select: { id: true, api_key: true, notification: true },
+    select: { id: true, api_key: true, api_whitelist_ips: true, notification: true },
   });
   if (!user) redirect('/auth/login');
 
