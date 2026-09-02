@@ -15,16 +15,14 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) return null;
 
-        const isAdmin = credentials.type === 'admin';
-
-        if (isAdmin) {
-          const admin = await prisma.admin.findUnique({ where: { username: credentials.username } });
-          if (!admin || !admin.status) return null;
+        // Try admin first
+        const admin = await prisma.admin.findUnique({ where: { username: credentials.username } });
+        if (admin && admin.status) {
           const valid = await bcrypt.compare(credentials.password, admin.password);
-          if (!valid) return null;
-          return { id: String(admin.id), name: admin.username, email: admin.email, role: 'admin', level: admin.level };
+          if (valid) return { id: String(admin.id), name: admin.username, email: admin.email, role: 'admin', level: admin.level };
         }
 
+        // Then user
         const user = await prisma.user.findUnique({ where: { username: credentials.username } });
         if (!user || user.status === 'BANNED') return null;
         const valid = await bcrypt.compare(credentials.password, user.password);

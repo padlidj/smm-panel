@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { signIn, getSession } from 'next-auth/react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -10,7 +9,6 @@ import { Toast } from '@/components/ui/toast';
 import { Loading } from '@/components/ui/loading';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -21,23 +19,11 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    // Try user login first
-    let res = await signIn('credentials', {
+    const res = await signIn('credentials', {
       username,
       password,
-      type: 'user',
       redirect: false,
     });
-
-    if (res?.error) {
-      // Try admin login
-      res = await signIn('credentials', {
-        username,
-        password,
-        type: 'admin',
-        redirect: false,
-      });
-    }
 
     setLoading(false);
 
@@ -46,11 +32,10 @@ export default function LoginPage() {
       return;
     }
 
-    if (res?.url) {
-      router.push(res.url);
-    } else {
-      router.push('/dashboard');
-    }
+    // Determine role from session, then hard redirect
+    const session = await getSession();
+    const role = (session?.user as any)?.role;
+    window.location.href = role === 'admin' ? '/admin' : '/dashboard';
   }
 
   return (
