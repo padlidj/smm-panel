@@ -80,7 +80,17 @@ export function DepositListClient({ deposits, total, page, status }: any) {
                   <TableCell><Badge variant={statusColor(d.status) as any}>{d.status}</Badge></TableCell>
                   <TableCell>{new Date(d.created_at).toLocaleString('id-ID')}</TableCell>
                   <TableCell>
-                    {d.status === 'PENDING' && <Button size="sm" onClick={() => approve(d)}>Approve</Button>}
+                    {d.status === 'PENDING' && (
+                      <div className="flex gap-1">
+                        <Button size="sm" onClick={() => approve(d)}>Approve</Button>
+                        <Button size="sm" variant="destructive" onClick={async () => {
+                          const r = await fetch('/api/admin/deposit/cancel', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: d.id }) });
+                          if (r.ok) router.refresh();
+                        }}>Cancel</Button>
+                        <Link href={`/admin/deposit/detail/${d.id}`}><Button variant="outline" size="sm">Detail</Button></Link>
+                      </div>
+                    )}
+                    {d.status !== 'PENDING' && <Link href={`/admin/deposit/detail/${d.id}`}><Button variant="outline" size="sm">Detail</Button></Link>}
                   </TableCell>
                 </TableRow>
               ))}

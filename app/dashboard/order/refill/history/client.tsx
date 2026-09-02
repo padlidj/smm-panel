@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -32,6 +33,7 @@ export function RefillHistoryClient({ refills, total, page }: any) {
                 <TableHead>Qty</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -44,9 +46,12 @@ export function RefillHistoryClient({ refills, total, page }: any) {
                   <TableCell>{r.quantity}</TableCell>
                   <TableCell><Badge variant={statusColor(r.status) as any}>{r.status}</Badge></TableCell>
                   <TableCell>{new Date(r.created_at).toLocaleString('id-ID')}</TableCell>
+                  <TableCell>
+                    <Link href={`/dashboard/order/refill/detail/${r.id}`} className="text-sm text-primary hover:underline">Detail</Link>
+                  </TableCell>
                 </TableRow>
               ))}
-              {refills.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No refills found</TableCell></TableRow>}
+              {refills.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">No refills found</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>

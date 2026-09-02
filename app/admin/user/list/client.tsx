@@ -82,6 +82,9 @@ export function UserListClient({ users, total, page, search, status }: any) {
                     <Link href={`/admin/user/form/${u.id}`}>
                       <Button variant="secondary" size="sm">Edit</Button>
                     </Link>
+                    <Link href={`/admin/user/detail/${u.id}`}>
+                      <Button variant="outline" size="sm" className="ml-1">Detail</Button>
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))}

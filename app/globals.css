@@ -18,10 +18,19 @@
     --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
+    --success: 142.1 76.2% 36.3%;
+    --success-foreground: 355.7 100% 97.3%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 48 96% 89%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
+    --sidebar-bg: 222.2 84% 4.9%;
+    --sidebar-fg: 210 40% 98%;
+    --sidebar-muted: 217.2 32.6% 15%;
+    --sidebar-hover: 217.2 32.6% 22%;
+    --sidebar-active: 221.2 83.2% 53.3%;
   }
 
   .dark {
@@ -39,9 +48,18 @@
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
+    --success: 142.1 76.2% 36.3%;
+    --success-foreground: 355.7 100% 97.3%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 48 96% 89%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 48%;
+    --sidebar-bg: 222.2 84% 4.9%;
+    --sidebar-fg: 210 40% 98%;
+    --sidebar-muted: 217.2 32.6% 10%;
+    --sidebar-hover: 217.2 32.6% 18%;
+    --sidebar-active: 221.2 83.2% 53.3%;
   }
 }
 
@@ -51,5 +69,44 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-background/80 backdrop-blur-sm border border-border/50 shadow-sm;
+  }
+  .glass-dark {
+    @apply bg-card/80 backdrop-blur-md border border-border/50 shadow-lg;
+  }
+  .card-gradient {
+    @apply bg-gradient-to-br from-card via-card to-muted/30;
+  }
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5;
+  }
+  .stat-card {
+    @apply rounded-xl border bg-card p-5 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/20;
+  }
+  .sidebar-item {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150;
+  }
+  .sidebar-item-active {
+    @apply sidebar-item bg-primary/20 text-primary shadow-sm;
+  }
+  .sidebar-item-inactive {
+    @apply sidebar-item text-sidebar-fg/70 hover:bg-sidebar-hover hover:text-sidebar-fg;
+  }
+  .gradient-heading {
+    @apply bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent;
+  }
+  .gradient-border {
+    @apply relative overflow-hidden rounded-xl before:absolute before:inset-0 before:rounded-xl before:p-[1px] before:bg-gradient-to-r before:from-primary/40 before:to-primary/10 before:-z-10;
+  }
+  .badge-gradient {
+    @apply bg-gradient-to-r from-primary/20 to-primary/10 text-primary border border-primary/20;
+  }
+  .input-modern {
+    @apply rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50;
   }
 }
