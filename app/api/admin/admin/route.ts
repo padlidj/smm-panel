@@ -5,7 +5,9 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user as any)?.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const me = session?.user as any;
+  if (!session || me?.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (me?.level !== 'SUPERADMIN') return NextResponse.json({ error: 'Hanya SUPERADMIN yang bisa mengelola admin' }, { status: 403 });
 
   try {
     const { id, username, email, password, level, status } = await req.json();
@@ -13,6 +15,10 @@ export async function POST(req: Request) {
     const data: any = { username, email, level, status };
     if (password) data.password = await bcrypt.hash(password, 10);
     if (id) {
+      if (Number(me.id) === parseInt(id)) {
+        if (status === false) return NextResponse.json({ error: 'Tidak bisa menonaktifkan akun sendiri' }, { status: 400 });
+        if (level && level !== me.level) return NextResponse.json({ error: 'Tidak bisa mengubah level sendiri' }, { status: 400 });
+      }
       if (!password) delete data.password;
       await prisma.admin.update({ where: { id: parseInt(id) }, data });
     } else {

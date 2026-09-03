@@ -17,6 +17,10 @@ export async function middleware(req: NextRequest) {
   if (path.startsWith('/admin')) {
     if (!token) return NextResponse.redirect(new URL('/auth/login', base));
     if (token.role !== 'admin') return NextResponse.redirect(new URL('/auth/login', base));
+    // Admin-account management pages: SUPERADMIN only (API routes enforce it too)
+    if (path.startsWith('/admin/admin') && token.level !== 'SUPERADMIN') {
+      return NextResponse.redirect(new URL('/admin', base));
+    }
   }
 
   return NextResponse.next();

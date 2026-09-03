@@ -8,6 +8,12 @@ export async function requireAdmin() {
   return session;
 }
 
+export async function requireSuperAdmin() {
+  const session = await requireAdmin();
+  if ((session.user as any)?.level !== 'SUPERADMIN') redirect('/admin');
+  return session;
+}
+
 export const PER_PAGE = 20;
 
 export function getPage(searchParams: { page?: string | string[] }) {

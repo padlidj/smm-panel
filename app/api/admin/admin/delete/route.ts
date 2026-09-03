@@ -14,7 +14,10 @@ export async function DELETE(req: Request) {
     const superCount = await prisma.admin.count({ where: { level: 'SUPERADMIN', status: true } });
     const target = await prisma.admin.findUnique({ where: { id: adminId } });
     if (!target) return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
-    if (target.level === 'SUPERADMIN' && superCount <= 1) return NextResponse.json({ error: 'Superadmin terakhir tidak bisa dihapus' }, { status: 400 });
+    if (target.level === 'SUPERADMIN') {
+      if ((session.user as any)?.level !== 'SUPERADMIN') return NextResponse.json({ error: 'Hanya SUPERADMIN yang bisa menghapus superadmin' }, { status: 403 });
+      if (superCount <= 1) return NextResponse.json({ error: 'Superadmin terakhir tidak bisa dihapus' }, { status: 400 });
+    }
     await prisma.admin.delete({ where: { id: adminId } });
     return NextResponse.json({ message: 'Admin deleted' });
   } catch (e: any) {

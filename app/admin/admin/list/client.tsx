@@ -11,7 +11,6 @@ import { postForm, confirmDelete } from '@/lib/admin-client';
 
 export function AdminListClient({ admins }: any) {
   const router = useRouter();
-  const [isSuperadmin, setIsSuperadmin] = useState(false);
 
   const toggle = async (a: any) => {
     await postForm('/api/admin/admin', { id: a.id, username: a.username, email: a.email, level: a.level, status: !a.status });
@@ -59,7 +58,6 @@ export function AdminListClient({ admins }: any) {
           </Table>
         </CardContent>
       </Card>
-      {!isSuperadmin && <p className="text-sm text-muted-foreground">Only SUPERADMIN can create or edit admin accounts.</p>}
     </div>
   );
 }
