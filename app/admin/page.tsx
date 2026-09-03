@@ -6,18 +6,33 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Users, ShoppingCart, CreditCard, Wallet } from 'lucide-react';
+import { RevenueChart } from '@/components/dashboard/revenue-chart';
 
 export default async function AdminDashboard() {
   const session = await getServerSession(authOptions);
   if (!session || (session.user as any)?.role !== 'admin') redirect('/auth/login');
 
-  const [totalUsers, ordersThisMonth, pendingDeposits, totalBalance, recentOrders] = await Promise.all([
+  const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const [totalUsers, ordersThisMonth, pendingDeposits, totalBalance, monthOrders, recentOrders] = await Promise.all([
     prisma.user.count(),
-    prisma.order.count({ where: { created_at: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } } }),
+    prisma.order.count({ where: { created_at: { gte: startOfMonth } } }),
     prisma.deposit.count({ where: { status: 'PENDING' } }),
     prisma.user.aggregate({ _sum: { balance: true } }),
+    prisma.order.findMany({ where: { created_at: { gte: startOfMonth } }, select: { price: true, created_at: true } }),
     prisma.order.findMany({ orderBy: { created_at: 'desc' }, take: 10, include: { user: { select: { username: true } } } }),
   ]);
+
+  // Revenue last 14 days
+  const revenueMap = new Map<string, number>();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    revenueMap.set(d.toLocaleDateString('en-CA'), 0);
+  }
+  for (const o of monthOrders) {
+    const d = new Date(o.created_at).toLocaleDateString('en-CA');
+    if (revenueMap.has(d)) revenueMap.set(d, (revenueMap.get(d) || 0) + Number(o.price));
+  }
+  const chartData = [...revenueMap.entries()].map(([date, total]) => ({ date: date.slice(8) + '/' + date.slice(5, 7), total }));
 
   const stats = [
     { label: 'Total Users', value: totalUsers.toLocaleString('id-ID'), icon: Users, color: 'text-blue-500' },
@@ -50,6 +65,10 @@ export default async function AdminDashboard() {
           );
         })}
       </div>
+      <Card>
+        <CardHeader><CardTitle className="text-lg">Revenue (14 Hari)</CardTitle></CardHeader>
+        <CardContent><RevenueChart data={chartData} /></CardContent>
+      </Card>
       <Card>
         <CardHeader><CardTitle className="text-lg">Recent Orders</CardTitle></CardHeader>
         <CardContent>

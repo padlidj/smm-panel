@@ -65,8 +65,22 @@ export function SettingsClient({ value }: any) {
               <Input value={form.website_url} onChange={e => set('website_url', e.target.value)} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Logo URL</label>
-              <Input value={form.logo} onChange={e => set('logo', e.target.value)} />
+              <label className="text-sm font-medium">Logo</label>
+              <div className="flex gap-2">
+                <Input value={form.logo} onChange={e => set('logo', e.target.value)} placeholder="URL logo" className="flex-1" />
+                <Button variant="secondary" type="button" onClick={async () => {
+                  const input = document.createElement('input');
+                  input.type = 'file'; input.accept = 'image/*';
+                  input.onchange = async () => {
+                    const f = input.files?.[0]; if (!f) return;
+                    const fd = new FormData(); fd.append('file', f);
+                    const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+                    const d = await res.json();
+                    if (res.ok) set('logo', d.url);
+                  };
+                  input.click();
+                }}>Upload</Button>
+              </div>
             </div>
             <div className="space-y-2">
               {toggle('Registration Enabled', 'is_register_enabled')}
