@@ -11,6 +11,7 @@ const menuItems = [
   { href: '/admin/order/list', label: 'Order', icon: ShoppingCart, children: [
     { href: '/admin/order/list', label: 'Orders' },
     { href: '/admin/order/refill/list', label: 'Refills' },
+    { href: '/admin/order/report', label: 'Laporan Order' },
   ]},
   { href: '/admin/service/category/list', label: 'Service', icon: Package, children: [
     { href: '/admin/service/category/list', label: 'Categories' },
@@ -20,7 +21,11 @@ const menuItems = [
     { href: '/admin/service/log', label: 'Service Log' },
     { href: '/admin/service/custom-price/list', label: 'Custom Price' },
   ]},
-  { href: '/admin/deposit/list', label: 'Deposit', icon: CreditCard },
+  { href: '/admin/deposit/list', label: 'Deposit', icon: CreditCard, children: [
+    { href: '/admin/deposit/list', label: 'Deposits' },
+    { href: '/admin/deposit/method/list', label: 'Methods' },
+    { href: '/admin/deposit/report', label: 'Laporan Deposit' },
+  ]},
   { href: '/admin/ticket/list', label: 'Ticket', icon: Ticket },
   { href: '/admin/admin/list', label: 'Admin', icon: Shield },
   { href: '/admin/settings/website', label: 'Settings', icon: Settings, children: [
