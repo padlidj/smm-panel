@@ -52,7 +52,11 @@ export default async function DepositDetailPage({ params }: { params: { id: stri
         <Card className="border-primary/30 bg-primary/5">
           <CardHeader><CardTitle className="text-primary">Instruksi Pembayaran</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <p>Transfer ke rekening <strong>{method.payment}</strong> dengan nominal <strong>Rp {Number(deposit.amount).toLocaleString('id-ID')}</strong>.</p>
+            {method.rekening ? (
+              <p>Transfer ke <strong>{method.rekening}</strong>{method.atas_nama ? ` a.n. <strong>{method.atas_nama}</strong>` : ''} dengan nominal persis <strong>Rp {Number(deposit.amount).toLocaleString('id-ID')}</strong>.</p>
+            ) : (
+              <p>Transfer ke rekening <strong>{method.payment}</strong> dengan nominal <strong>Rp {Number(deposit.amount).toLocaleString('id-ID')}</strong>.</p>
+            )}
             {Number(method.min) > 0 && <p>Minimal deposit: Rp {Number(method.min).toLocaleString('id-ID')}</p>}
             <p className="text-muted-foreground">Deposit akan diproses otomatis setelah pembayaran terverifikasi. Hubungi admin jika ada kendala.</p>
           </CardContent>

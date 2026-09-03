@@ -51,6 +51,7 @@ export default async function LandingPage() {
             <a href="#layanan" className="hover:text-foreground transition-colors">Layanan</a>
             <a href="#keunggulan" className="hover:text-foreground transition-colors">Keunggulan</a>
             <a href="/service" className="hover:text-foreground transition-colors">Harga Layanan</a>
+            <a href="/cek" className="hover:text-foreground transition-colors">Cek Pesanan</a>
             <a href="/api_doc" className="hover:text-foreground transition-colors">API</a>
             <a href="/information" className="hover:text-foreground transition-colors">Informasi</a>
           </div>

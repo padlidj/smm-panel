@@ -13,13 +13,13 @@ import { postForm, confirmDelete } from '@/lib/admin-client';
 
 export function MethodListClient({ methods }: any) {
   const router = useRouter();
-  const [form, setForm] = useState<any>({ id: null, payment: '', method: '', type: 'AUTO', min: '', max: '', fee_percent: '0', status: true });
+  const [form, setForm] = useState<any>({ id: null, payment: '', method: '', type: 'AUTO', min: '', max: '', fee_percent: '0', status: true, rekening: '', atas_nama: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
 
-  const edit = (m: any) => setForm({ id: m.id, payment: m.payment, method: m.method, type: m.type, min: String(m.min), max: String(m.max), fee_percent: String(m.fee_percent), status: m.status });
+  const edit = (m: any) => setForm({ id: m.id, payment: m.payment, method: m.method, type: m.type, min: String(m.min), max: String(m.max), fee_percent: String(m.fee_percent), status: m.status, rekening: m.rekening || '', atas_nama: m.atas_nama || '' });
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +28,7 @@ export function MethodListClient({ methods }: any) {
     try {
       await postForm('/api/admin/deposit-method', form);
       setSuccess('Method saved');
-      setForm({ id: null, payment: '', method: '', type: 'AUTO', min: '', max: '', fee_percent: '0', status: true });
+      setForm({ id: null, payment: '', method: '', type: 'AUTO', min: '', max: '', fee_percent: '0', status: true, rekening: '', atas_nama: '' });
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -56,6 +56,8 @@ export function MethodListClient({ methods }: any) {
             <Input type="number" placeholder="Min" value={form.min} onChange={e => set('min', e.target.value)} required />
             <Input type="number" placeholder="Max" value={form.max} onChange={e => set('max', e.target.value)} required />
             <Input type="number" step="0.01" placeholder="Fee %" value={form.fee_percent} onChange={e => set('fee_percent', e.target.value)} />
+            <Input placeholder="Rekening (no. rek / QRIS target)" value={form.rekening} onChange={e => set('rekening', e.target.value)} />
+            <Input placeholder="Atas Nama" value={form.atas_nama} onChange={e => set('atas_nama', e.target.value)} />
             <Select value={String(form.status)} onChange={e => set('status', e.target.value === 'true')}>
               <option value="true">Active</option>
               <option value="false">Inactive</option>

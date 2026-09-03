@@ -8,8 +8,8 @@ export async function POST(req: Request) {
   if (!session || (session.user as any)?.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const { id, payment, method, type, min, max, fee_percent, status } = await req.json();
-    const data: any = { payment, method, type, min: parseInt(min), max: parseInt(max), fee_percent: parseFloat(fee_percent), status };
+    const { id, payment, method, type, min, max, fee_percent, status, rekening, atas_nama } = await req.json();
+    const data: any = { payment, method, type, min: parseInt(min), max: parseInt(max), fee_percent: parseFloat(fee_percent), status, rekening: rekening?.trim() || null, atas_nama: atas_nama?.trim() || null };
     if (id) {
       await prisma.depositMethod.update({ where: { id: parseInt(id) }, data });
     } else {

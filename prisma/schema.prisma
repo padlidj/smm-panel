@@ -271,6 +271,8 @@ model DepositMethod {
   min          Decimal          @db.Decimal(15, 0)
   max          Decimal          @db.Decimal(15, 0)
   fee_percent  Decimal          @default(0) @db.Decimal(5, 2)
+  rekening     String?
+  atas_nama    String?
   status       Boolean          @default(true)
   created_at   DateTime         @default(now())
 

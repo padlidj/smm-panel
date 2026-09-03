@@ -77,6 +77,9 @@ export function DepositNewClient({ methods, user }: any) {
               <p><span className="text-muted-foreground">Min/Max:</span> Rp {Number(method.min).toLocaleString('id-ID')} - Rp {Number(method.max).toLocaleString('id-ID')}</p>
               {method.fee_percent > 0 && <p><span className="text-muted-foreground">Fee:</span> {method.fee_percent}% = Rp {fee.toLocaleString('id-ID')}</p>}
               <p><span className="text-muted-foreground">You pay:</span> <span className="font-bold">Rp {(Number(amount || 0) + fee).toLocaleString('id-ID')}</span></p>
+              {method.type === 'MANUAL' && method.rekening && (
+                <p><span className="text-muted-foreground">Transfer ke:</span> <strong>{method.rekening}</strong>{method.atas_nama ? ` a.n. ${method.atas_nama}` : ''}</p>
+              )}
             </div>
           )}
           {error && <Toast type="error" message={error} />}
