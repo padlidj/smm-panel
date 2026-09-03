@@ -14,25 +14,35 @@ export async function POST(req: Request) {
 
     const deposit = await prisma.deposit.findFirst({ where: { midtrans_order_id: order_id } });
     if (!deposit) return NextResponse.json({ status: false, message: 'Deposit not found' });
-    if (deposit.status !== 'PENDING') return NextResponse.json({ status: false, message: 'Already processed' });
 
     const isSuccess = (transaction_status === 'settlement' || transaction_status === 'capture') && fraud_status === 'accept';
     if (isSuccess) {
+      // Claim + credit in one transaction: only the caller that flips PENDING->SUCCESS credits,
+      // and a failed credit rolls the claim back.
       let balanceAfter = 0;
-      await prisma.$transaction(async (tx) => {
-        await tx.deposit.update({ where: { id: deposit.id }, data: { status: 'SUCCESS' } });
-        const user = await tx.user.findUnique({ where: { id: deposit.user_id } });
-        if (!user) throw new Error('User not found');
-        const balanceBefore = Number(user.balance);
-        balanceAfter = balanceBefore + Number(deposit.net);
-        await tx.user.update({ where: { id: deposit.user_id }, data: { balance: balanceAfter } });
-        await tx.balanceLog.create({
-          data: {
-            user_id: deposit.user_id, type: 'PLUS', action: 'Deposit', amount: deposit.net,
-            balance_before: balanceBefore, balance_after: balanceAfter, description: `Deposit #${deposit.id} via ${deposit.method}`,
-          },
+      try {
+        await prisma.$transaction(async (tx) => {
+          const claimed = await tx.deposit.updateMany({
+            where: { id: deposit.id, status: 'PENDING' },
+            data: { status: 'SUCCESS' },
+          });
+          if (claimed.count === 0) throw new Error('ALREADY_PROCESSED');
+          const user = await tx.user.findUnique({ where: { id: deposit.user_id } });
+          if (!user) throw new Error('User not found');
+          const balanceBefore = Number(user.balance);
+          balanceAfter = balanceBefore + Number(deposit.net);
+          await tx.$executeRaw`UPDATE users SET balance = balance + ${deposit.net}, updated_at = NOW() WHERE id = ${deposit.user_id}`;
+          await tx.balanceLog.create({
+            data: {
+              user_id: deposit.user_id, type: 'PLUS', action: 'Deposit', amount: deposit.net,
+              balance_before: balanceBefore, balance_after: balanceAfter, description: `Deposit #${deposit.id} via ${deposit.method}`,
+            },
+          });
         });
-      });
+      } catch (e: any) {
+        if (e.message === 'ALREADY_PROCESSED') return NextResponse.json({ status: false, message: 'Already processed' });
+        throw e;
+      }
       void notifyUser(deposit.user_id, 'deposit', `Deposit #${deposit.id} berhasil`,
         `<p>Deposit Rp ${Number(deposit.net).toLocaleString('id-ID')} masuk. Saldo: Rp ${balanceAfter.toLocaleString('id-ID')}</p>`);
       return NextResponse.json({ status: true, message: 'Deposit approved' });

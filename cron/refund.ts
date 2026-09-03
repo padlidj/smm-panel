@@ -5,7 +5,7 @@ async function main() {
   const orders = await prisma.order.findMany({
     where: { status: { in: ['ERROR', 'PARTIAL'] }, is_refund: false },
     take: 50,
-    orderBy: { id: 'desc' },
+    orderBy: { id: 'asc' }, // oldest-first: no starvation under backlog
   });
 
   if (orders.length === 0) {

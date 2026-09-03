@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import { checkProviderStatus } from '../lib/provider';
+import { checkProviderStatus, executeProviderOrder } from '../lib/provider';
 import { notifyUser } from '../lib/notify';
 
 async function main() {
@@ -7,8 +7,27 @@ async function main() {
     where: { status: { in: ['PENDING', 'PROCESSING'] } },
     include: { service_provider: true },
     take: 150,
-    orderBy: { id: 'desc' },
+    orderBy: { id: 'asc' }, // oldest-first: backlog never starves old orders
   });
+
+  // Recovery: PENDING >30min with no provider call at all (crash between DB commit and
+  // provider submit) -> resubmit. provider_order_log null proves the call never happened.
+  const stuck = await prisma.order.findMany({
+    where: {
+      status: 'PENDING', provider_order_id: null, provider_order_log: null,
+      created_at: { lt: new Date(Date.now() - 30 * 60_000) },
+      service_provider: { name: { not: 'MANUAL' } },
+    },
+    take: 20, orderBy: { id: 'asc' },
+    include: { service: { include: { provider: true } } },
+  });
+  for (const order of stuck) {
+    console.log(`Recover stuck order #${order.id} -> resubmit`);
+    await executeProviderOrder(order.service.provider, order, {
+      service: order.service, target: order.target, quantity: order.quantity,
+      custom_comments: order.custom_comments, username: order.username,
+    }).catch(() => {});
+  }
 
   if (orders.length === 0) {
     console.log('Tidak ada pesanan yang harus diperbarui.');

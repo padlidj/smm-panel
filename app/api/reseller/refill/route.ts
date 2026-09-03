@@ -8,7 +8,10 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ status: false, message: 'Invalid API key' });
 
   const body = await req.json();
-  const { order_id, quantity } = body;
+  const { order_id } = body;
+  const quantity = Number(body.quantity);
+  if (!Number.isInteger(quantity) || quantity <= 0)
+    return NextResponse.json({ status: false, message: 'Invalid quantity' });
 
   if (!order_id || !quantity) {
     return NextResponse.json({ status: false, message: 'Missing required fields: order_id, quantity' });
@@ -41,7 +44,7 @@ export async function POST(req: Request) {
       target: order.target,
       quantity,
       price: totalPrice,
-      profit: 0,
+      profit: Math.ceil((Number(order.profit) / order.quantity) * quantity),
       status: 'PENDING',
     },
   });

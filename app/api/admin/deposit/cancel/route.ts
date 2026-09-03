@@ -11,8 +11,11 @@ export async function PATCH(req: Request) {
   const { id } = await req.json();
   const deposit = await prisma.deposit.findUnique({ where: { id: Number(id) } });
   if (!deposit) return NextResponse.json({ error: 'Deposit tidak ditemukan' }, { status: 404 });
-  if (deposit.status !== 'PENDING') return NextResponse.json({ error: 'Hanya deposit PENDING yang bisa dibatalkan' }, { status: 400 });
-
-  await prisma.deposit.update({ where: { id: deposit.id }, data: { status: 'EXPIRED' } });
+  // Conditional update: cancel loses the race against approve/webhook if not PENDING anymore.
+  const cancelled = await prisma.deposit.updateMany({
+    where: { id: deposit.id, status: 'PENDING' },
+    data: { status: 'EXPIRED' },
+  });
+  if (cancelled.count === 0) return NextResponse.json({ error: 'Hanya deposit PENDING yang bisa dibatalkan' }, { status: 400 });
   return NextResponse.json({ status: true });
 }

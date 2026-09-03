@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { executeProviderOrder } from '@/lib/provider';
+import { debitGuard } from '@/lib/balance';
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -11,6 +12,7 @@ export async function POST(req: Request) {
   const userId = Number((session.user as any).id);
   const body = await req.json();
   const { service_id, targets } = body;
+  const ip = req.headers.get('x-real-ip') || '';
 
   if (!Array.isArray(targets) || targets.length === 0) return NextResponse.json({ status: false, message: 'Target tidak boleh kosong.' });
   if (targets.length > 20) return NextResponse.json({ status: false, message: 'Maksimal 20 target per pesanan.' });
@@ -41,11 +43,7 @@ export async function POST(req: Request) {
   if (orders.length === 0) return NextResponse.json({ status: false, message: 'Semua target gagal divalidasi.' });
 
   const created = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({ where: { id: userId } });
-    if (!user || Number(user.balance) < totalPrice) throw new Error('Saldo tidak mencukupi');
-    const balanceBefore = Number(user.balance);
-    const balanceAfter = balanceBefore - totalPrice;
-    await tx.user.update({ where: { id: userId }, data: { balance: balanceAfter } });
+    const { balanceBefore, balanceAfter } = await debitGuard(tx, userId, totalPrice);
     await tx.balanceLog.create({
       data: { user_id: userId, type: 'MINUS', action: 'Order', amount: totalPrice, balance_before: balanceBefore, balance_after: balanceAfter, description: `Bulk pesanan #${service.name} (${orders.length} target)` },
     });
@@ -57,7 +55,7 @@ export async function POST(req: Request) {
           user_id: userId, service_id: service.id, provider_id: service.provider_id,
           service_name: service.name, target: o.target, quantity: o.quantity, price: o.price,
           profit: Math.ceil((profitPerUnit / 1000) * o.quantity),
-          status: 'PENDING', ip_address: req.headers.get('x-forwarded-for') || '',
+          status: 'PENDING', ip_address: ip,
         },
       });
       result.push(order);

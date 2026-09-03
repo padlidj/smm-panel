@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { executeProviderOrder } from '@/lib/provider';
+import { debitGuard } from '@/lib/balance';
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -10,7 +11,12 @@ export async function POST(req: Request) {
 
   const userId = Number((session.user as any).id);
   const body = await req.json();
-  const { service_id, target, quantity, custom_comments, username } = body;
+  const { service_id, target, custom_comments, username } = body;
+  const quantity = Number(body.quantity);
+
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    return NextResponse.json({ status: false, message: 'Jumlah tidak valid.' });
+  }
 
   const service = await prisma.service.findFirst({ where: { id: Number(service_id), status: true }, include: { provider: true } });
   if (!service) return NextResponse.json({ status: false, message: 'Layanan tidak tersedia.' });
@@ -26,11 +32,7 @@ export async function POST(req: Request) {
   const totalProfit = Math.ceil((profitPerUnit / 1000) * quantity);
 
   const order = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({ where: { id: userId } });
-    if (!user || Number(user.balance) < totalPrice) throw new Error('Saldo tidak mencukupi');
-    const balanceBefore = Number(user.balance);
-    const balanceAfter = balanceBefore - totalPrice;
-    await tx.user.update({ where: { id: userId }, data: { balance: balanceAfter } });
+    const { balanceBefore, balanceAfter } = await debitGuard(tx, userId, totalPrice);
     await tx.balanceLog.create({
       data: { user_id: userId, type: 'MINUS', action: 'Order', amount: totalPrice, balance_before: balanceBefore, balance_after: balanceAfter, description: `Pesanan #${service.name}` },
     });
@@ -38,7 +40,7 @@ export async function POST(req: Request) {
       data: {
         user_id: userId, service_id: service.id, provider_id: service.provider_id,
         service_name: service.name, target: String(target), quantity, price: totalPrice, profit: totalProfit,
-        status: 'PENDING', ip_address: req.headers.get('x-forwarded-for') || '',
+        status: 'PENDING', ip_address: req.headers.get('x-real-ip') || '',
         custom_comments, username,
       },
     });

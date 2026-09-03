@@ -10,7 +10,9 @@ import { Toast } from '@/components/ui/toast';
 export function AccountSettingsClient({ user }: any) {
   const router = useRouter();
   const notif = user.notification || {};
-  const [orderNotif, setOrderNotif] = useState(notif.order === '1');
+  const [orderNotif, setOrderNotif] = useState(notif.order !== '0');
+  const [ticketNotif, setTicketNotif] = useState(notif.ticket !== '0');
+  const [depositNotif, setDepositNotif] = useState(notif.deposit !== '0');
   const [whitelist, setWhitelist] = useState(user.api_whitelist_ips || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -23,7 +25,7 @@ export function AccountSettingsClient({ user }: any) {
       const res = await fetch('/api/account/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notification: { order: orderNotif ? '1' : '0' } }),
+        body: JSON.stringify({ notification: { order: orderNotif ? '1' : '0', ticket: ticketNotif ? '1' : '0', deposit: depositNotif ? '1' : '0' } }),
       });
       const data = await res.json();
       if (!data.status) return setError(data.message || 'Gagal.');
@@ -83,7 +85,15 @@ export function AccountSettingsClient({ user }: any) {
         <CardContent className="space-y-3">
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={orderNotif} onChange={e => setOrderNotif(e.target.checked)} className="h-4 w-4" />
-            Email notification on order status change
+            Email notifikasi status pesanan & refund
+          </label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={ticketNotif} onChange={e => setTicketNotif(e.target.checked)} className="h-4 w-4" />
+            Email notifikasi balasan/tutup ticket
+          </label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={depositNotif} onChange={e => setDepositNotif(e.target.checked)} className="h-4 w-4" />
+            Email notifikasi deposit berhasil
           </label>
           <Button onClick={saveNotif} disabled={loading}>{loading ? 'Saving...' : 'Save'}</Button>
         </CardContent>

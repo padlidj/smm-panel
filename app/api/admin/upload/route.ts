@@ -13,7 +13,10 @@ export async function POST(req: Request) {
     const file = form.get('file') as File;
     if (!file) return NextResponse.json({ error: 'No file' }, { status: 400 });
 
-    const ext = file.name.split('.').pop() || 'png';
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    // no svg: inline SVG can carry script = stored XSS on same origin
+    if (!['png', 'jpg', 'jpeg', 'webp', 'gif', 'ico'].includes(ext))
+      return NextResponse.json({ error: 'Format file tidak didukung' }, { status: 400 });
     const name = `${Date.now()}.${ext}`;
     const buf = Buffer.from(await file.arrayBuffer());
     // standalone server.js chdir()-s to .next/standalone — uploads must go to a stable absolute dir

@@ -11,7 +11,10 @@ export async function POST(req: Request) {
 
   const userId = Number((session.user as any).id);
   const body = await req.json();
-  const { order_id, quantity } = body;
+  const { order_id } = body;
+  const quantity = Number(body.quantity);
+  if (!Number.isInteger(quantity) || quantity <= 0)
+    return NextResponse.json({ status: false, message: 'Jumlah tidak valid.' });
 
   const order = await prisma.order.findUnique({ where: { id: Number(order_id) } });
   if (!order || order.user_id !== userId) return NextResponse.json({ status: false, message: 'Order not found' });
@@ -28,7 +31,8 @@ export async function POST(req: Request) {
   const refill = await prisma.orderRefill.create({
     data: {
       order_id: order.id, user_id: userId, target: order.target, quantity,
-      price: totalPrice, profit: 0, status: 'PENDING',
+      price: totalPrice,
+      profit: Math.ceil((Number(order.profit) / order.quantity) * quantity), status: 'PENDING',
     },
   });
 

@@ -15,8 +15,9 @@ export async function getApiUser(req: Request) {
   if (!user || user.status === 'BANNED') return null;
 
   // IP whitelist: if set, require client IP to be in comma-separated list.
+  // x-real-ip is set clean by nginx; x-forwarded-for is append-only and spoofable by the client.
   if (user.api_whitelist_ips) {
-    const clientIp = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
+    const clientIp = (req.headers.get('x-real-ip') || '').trim() || 'unknown';
     const allowed = user.api_whitelist_ips.split(',').map((s) => s.trim()).filter(Boolean);
     if (allowed.length > 0 && !allowed.includes(clientIp)) return null;
   }
