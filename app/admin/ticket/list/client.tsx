@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination } from '@/components/ui/pagination';
+import { confirmDelete } from '@/lib/admin-client';
 
 const PER_PAGE = 20;
 
@@ -57,7 +58,7 @@ export function TicketListClient({ tickets, total, page, status }: any) {
                   <TableCell>{t._count.replies}</TableCell>
                   <TableCell><Badge variant={statusColor(t.status) as any}>{t.status}</Badge></TableCell>
                   <TableCell>{new Date(t.updated_at).toLocaleString('id-ID')}</TableCell>
-                  <TableCell><Link href={`/admin/ticket/${t.id}`}><Button variant="secondary" size="sm">View & Reply</Button></Link></TableCell>
+                  <TableCell><Link href={`/admin/ticket/${t.id}`}><Button variant="secondary" size="sm">View & Reply</Button></Link><Button variant="destructive" size="sm" className="ml-1" onClick={confirmDelete('/api/admin/ticket/delete', t.id)}>Hapus</Button></TableCell>
                 </TableRow>
               ))}
               {tickets.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No tickets</TableCell></TableRow>}

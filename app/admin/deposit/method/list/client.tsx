@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Toast } from '@/components/ui/toast';
-import { postForm } from '@/lib/admin-client';
+import { postForm, confirmDelete } from '@/lib/admin-client';
 
 export function MethodListClient({ methods }: any) {
   const router = useRouter();
@@ -97,6 +97,7 @@ export function MethodListClient({ methods }: any) {
                   <TableCell className="flex gap-2">
                     <Button variant="secondary" size="sm" onClick={() => edit(m)}>Edit</Button>
                     <Button variant="secondary" size="sm" onClick={() => toggle(m)}>Toggle</Button>
+                    <Button variant="destructive" size="sm" onClick={confirmDelete('/api/admin/deposit-method/delete', m.id)}>Hapus</Button>
                   </TableCell>
                 </TableRow>
               ))}

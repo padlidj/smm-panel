@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Toast } from '@/components/ui/toast';
-import { postForm } from '@/lib/admin-client';
+import { postForm, confirmDelete } from '@/lib/admin-client';
 
 export function ProviderListClient({ providers }: any) {
   const [balance, setBalance] = useState<Record<number, string>>({});
@@ -71,6 +71,7 @@ export function ProviderListClient({ providers }: any) {
                       const json = await res.json();
                       setBalance(prev => ({ ...prev, [p.id]: res.ok ? `Synced ${json.count} services` : json.error }));
                     }}>Sync</Button>
+                    <Button variant="destructive" size="sm" onClick={confirmDelete('/api/admin/provider/delete', p.id)}>Hapus</Button>
                   </TableCell>
                 </TableRow>
               ))}

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination } from '@/components/ui/pagination';
+import { confirmDelete } from '@/lib/admin-client';
 
 const PER_PAGE = 20;
 
@@ -85,6 +86,7 @@ export function UserListClient({ users, total, page, search, status }: any) {
                     <Link href={`/admin/user/detail/${u.id}`}>
                       <Button variant="outline" size="sm" className="ml-1">Detail</Button>
                     </Link>
+                    <Button variant="destructive" size="sm" className="ml-1" onClick={confirmDelete('/api/admin/user/delete', u.id)}>Hapus</Button>
                   </TableCell>
                 </TableRow>
               ))}

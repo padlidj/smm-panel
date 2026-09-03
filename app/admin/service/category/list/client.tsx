@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Toast } from '@/components/ui/toast';
-import { postForm } from '@/lib/admin-client';
+import { postForm, confirmDelete } from '@/lib/admin-client';
 
 export function CategoryListClient({ categories }: any) {
   const router = useRouter();
@@ -74,6 +74,7 @@ export function CategoryListClient({ categories }: any) {
                   <TableCell className="flex gap-2">
                     <Button variant="secondary" size="sm" onClick={() => { setEditing(c); setName(c.name); }}>Edit</Button>
                     <Button variant="secondary" size="sm" onClick={() => toggle(c)}>Toggle</Button>
+                    <Button variant="destructive" size="sm" onClick={confirmDelete('/api/admin/category/delete', c.id)}>Hapus</Button>
                   </TableCell>
                 </TableRow>
               ))}

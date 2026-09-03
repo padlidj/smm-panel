@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination } from '@/components/ui/pagination';
 import { Toast } from '@/components/ui/toast';
+import { confirmDelete } from '@/lib/admin-client';
 
 const PER_PAGE = 20;
 
@@ -91,6 +92,7 @@ export function DepositListClient({ deposits, total, page, status }: any) {
                       </div>
                     )}
                     {d.status !== 'PENDING' && <Link href={`/admin/deposit/detail/${d.id}`}><Button variant="outline" size="sm">Detail</Button></Link>}
+                    {d.status !== 'PENDING' && d.status !== 'SUCCESS' && <Button variant="destructive" size="sm" className="ml-1" onClick={confirmDelete('/api/admin/deposit/delete', d.id)}>Hapus</Button>}
                   </TableCell>
                 </TableRow>
               ))}

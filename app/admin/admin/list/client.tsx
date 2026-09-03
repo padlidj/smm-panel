@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { postForm } from '@/lib/admin-client';
+import { postForm, confirmDelete } from '@/lib/admin-client';
 
 export function AdminListClient({ admins }: any) {
   const router = useRouter();
@@ -50,6 +50,7 @@ export function AdminListClient({ admins }: any) {
                   <TableCell className="flex gap-2">
                     <Link href={`/admin/admin/form/${a.id}`}><Button variant="secondary" size="sm">Edit</Button></Link>
                     <Button variant="secondary" size="sm" onClick={() => toggle(a)}>Toggle</Button>
+                    <Button variant="destructive" size="sm" onClick={confirmDelete('/api/admin/admin/delete', a.id)}>Hapus</Button>
                   </TableCell>
                 </TableRow>
               ))}
