@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { bumpMainConfig } from '@/lib/config';
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -15,6 +16,7 @@ export async function POST(req: Request) {
       update: { value: values },
       create: { key, value: values },
     });
+    if (key === 'main') bumpMainConfig();
     return NextResponse.json({ message: 'Settings saved' });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

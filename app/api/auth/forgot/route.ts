@@ -2,8 +2,13 @@ import { NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
+import { getMainConfig } from '@/lib/config';
 
 export async function POST(req: Request) {
+  const cfg = await getMainConfig();
+  if (!cfg.is_reset_password_enabled) {
+    return NextResponse.json({ error: 'Reset password sedang dinonaktifkan' }, { status: 403 });
+  }
   const { email } = await req.json();
   if (!email) return NextResponse.json({ error: 'Email wajib diisi' }, { status: 400 });
 

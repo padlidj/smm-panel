@@ -16,7 +16,9 @@ export async function POST(req: Request) {
     const ext = file.name.split('.').pop() || 'png';
     const name = `${Date.now()}.${ext}`;
     const buf = Buffer.from(await file.arrayBuffer());
-    await writeFile(join(process.cwd(), 'public/uploads', name), buf);
+    // standalone server.js chdir()-s to .next/standalone — uploads must go to a stable absolute dir
+    const dir = process.env.UPLOAD_DIR || join(process.cwd(), 'public/uploads');
+    await writeFile(join(dir, name), buf);
 
     return NextResponse.json({ url: `/uploads/${name}` });
   } catch (e: any) {

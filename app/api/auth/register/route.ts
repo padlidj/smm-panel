@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import { getMainConfig } from '@/lib/config';
 
 export async function POST(req: Request) {
   try {
+    const cfg = await getMainConfig();
+    if (!cfg.is_register_enabled) {
+      return NextResponse.json({ error: 'Pendaftaran sedang dinonaktifkan' }, { status: 403 });
+    }
     const { username, email, password } = await req.json();
 
     if (!username || !email || !password) {
