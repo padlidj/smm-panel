@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
 import { UserSidebar } from '@/components/layout/user-sidebar';
 import { UserTopbar } from '@/components/layout/user-topbar';
+import { InfoPopup } from '@/components/layout/info-popup';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -15,6 +16,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <UserTopbar />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
+      <InfoPopup />
     </div>
   );
 }
