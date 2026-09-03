@@ -28,7 +28,7 @@ export default function LoginPage() {
     setLoading(false);
 
     if (res?.error) {
-      setError('Username atau password tidak valid');
+      setError(res.error.includes('aktivasi') ? res.error : 'Username atau password tidak valid');
       return;
     }
 

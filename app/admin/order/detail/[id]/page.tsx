@@ -2,11 +2,13 @@ import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { OrderEditClient } from './client';
 
 export default async function OrderDetailPage({ params }: { params: { id: string } }) {
   await requireAdmin();
   const order = await prisma.order.findUnique({ where: { id: parseInt(params.id) }, include: { user: { select: { username: true, email: true } }, order_refills: true } });
   if (!order) return <div className="text-center text-muted-foreground">Order not found</div>;
+  const plain = JSON.parse(JSON.stringify({ ...order, price: Number(order.price), profit: Number(order.profit), created_at: order.created_at }));
 
   const rows = [
     ['ID', String(order.id)],
@@ -28,6 +30,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
   return (
     <div className="max-w-3xl mx-auto space-y-4">
       <h1 className="text-2xl font-bold">Order #{order.id}</h1>
+      <OrderEditClient order={plain} />
       <Card>
         <CardHeader><CardTitle>Details</CardTitle></CardHeader>
         <CardContent>

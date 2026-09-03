@@ -16,6 +16,7 @@ export function SettingsClient({ value }: any) {
     logo: value.logo || '',
     is_register_enabled: value.is_register_enabled ?? true,
     is_reset_password_enabled: value.is_reset_password_enabled ?? false,
+    is_email_verification_enabled: value.is_email_verification_enabled ?? false,
     is_maintenance: value.is_maintenance ?? false,
   });
   const [error, setError] = useState('');
@@ -85,6 +86,7 @@ export function SettingsClient({ value }: any) {
             <div className="space-y-2">
               {toggle('Registration Enabled', 'is_register_enabled')}
               {toggle('Reset Password Enabled', 'is_reset_password_enabled')}
+              {toggle('Email Verification', 'is_email_verification_enabled')}
               {toggle('Maintenance Mode', 'is_maintenance')}
             </div>
             {error && <Toast type="error" message={error} />}

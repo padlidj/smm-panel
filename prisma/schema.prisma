@@ -96,6 +96,7 @@ model User {
   api_whitelist_ips String?
   reset_token     String?
   reset_token_expires DateTime?
+  activate_token  String?
   notification    Json      @default("{\"order\":\"1\"}")
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt

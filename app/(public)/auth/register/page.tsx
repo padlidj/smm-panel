@@ -44,8 +44,8 @@ export default function RegisterPage() {
       return;
     }
 
-    setSuccess('Pendaftaran berhasil! Mengalihkan...');
-    setTimeout(() => router.push('/auth/login'), 1500);
+    setSuccess(data.message || 'Pendaftaran berhasil! Mengalihkan...');
+    setTimeout(() => router.push('/auth/login'), data.message ? 4000 : 1500);
   }
 
   return (

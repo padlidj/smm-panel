@@ -44,6 +44,10 @@ export const authOptions: NextAuthOptions = {
           await prisma.loginLog.create({ data: { user_id: user.id, username: user.username, type: 'USER', ip_address: ip, user_agent: ua, status: 'FAILED' } }).catch(() => {});
           return null;
         }
+        if (user.status === 'UNVERIFIED') {
+          await prisma.loginLog.create({ data: { user_id: user.id, username: user.username, type: 'USER', ip_address: ip, user_agent: ua, status: 'FAILED' } }).catch(() => {});
+          throw new Error('Akun belum diaktivasi. Cek email Anda.');
+        }
 
         // ponytail: no location lookup. Add geoip when needed.
         await prisma.loginLog.create({

@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { getMainConfig } from '@/lib/config';
+import { sendEmail } from '@/lib/email';
 
 const regHits = new Map<string, number[]>();
 
@@ -48,15 +50,27 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    // Activation email only when both the setting and SMTP are on — otherwise users would lock themselves out
+    const needVerify = !!cfg.is_email_verification_enabled && !!process.env.SMTP_USER;
+    const activateToken = needVerify ? randomBytes(32).toString('hex') : null;
+
     await prisma.user.create({
       data: {
         username,
         email,
         password: hashedPassword,
         role: 'USER',
-        status: 'ACTIVE',
+        status: needVerify ? 'UNVERIFIED' : 'ACTIVE',
+        activate_token: activateToken,
       },
     });
+
+    if (needVerify) {
+      const url = `${process.env.NEXTAUTH_URL || 'https://kuygas.my.id'}/auth/activate/${activateToken}`;
+      await sendEmail(email, 'Aktivasi Akun',
+        `<p>Halo ${username}, klik untuk aktivasi akun:</p><p><a href="${url}">${url}</a></p>`).catch(() => {});
+      return NextResponse.json({ message: 'Pendaftaran berhasil. Cek email untuk aktivasi akun.' }, { status: 201 });
+    }
 
     return NextResponse.json({ message: 'Pendaftaran berhasil' }, { status: 201 });
   } catch (error) {

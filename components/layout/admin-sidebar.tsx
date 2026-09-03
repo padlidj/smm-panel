@@ -8,7 +8,10 @@ import { useState } from 'react';
 const menuItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/user/list', label: 'User', icon: Users },
-  { href: '/admin/order/list', label: 'Order', icon: ShoppingCart },
+  { href: '/admin/order/list', label: 'Order', icon: ShoppingCart, children: [
+    { href: '/admin/order/list', label: 'Orders' },
+    { href: '/admin/order/refill/list', label: 'Refills' },
+  ]},
   { href: '/admin/service/category/list', label: 'Service', icon: Package, children: [
     { href: '/admin/service/category/list', label: 'Categories' },
     { href: '/admin/service/provider/list', label: 'Providers' },
@@ -37,7 +40,7 @@ const menuItems = [
 export function AdminSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({ Service: true });
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({ Service: true, Order: true });
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
