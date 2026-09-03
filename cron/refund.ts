@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { notifyUser } from '../lib/notify';
 
 async function main() {
   const orders = await prisma.order.findMany({
@@ -19,11 +20,12 @@ async function main() {
     }
 
     try {
+      let balanceAfter = 0;
       await prisma.$transaction(async (tx) => {
         const user = await tx.user.findUnique({ where: { id: order.user_id } });
         if (!user) throw new Error('User not found');
         const balanceBefore = Number(user.balance);
-        const balanceAfter = balanceBefore + amountRefund;
+        balanceAfter = balanceBefore + amountRefund;
         await tx.user.update({ where: { id: order.user_id }, data: { balance: balanceAfter } });
         await tx.balanceLog.create({
           data: { user_id: order.user_id, type: 'PLUS', action: 'Refund', amount: amountRefund, balance_before: balanceBefore, balance_after: balanceAfter, description: `Pengembalian Dana Pesanan #${order.id}` },
@@ -38,6 +40,8 @@ async function main() {
           },
         });
       });
+      void notifyUser(order.user_id, 'order', `Refund pesanan #${order.id}`,
+        `<p>Pesanan <b>#${order.id}</b> direfund Rp ${amountRefund.toLocaleString('id-ID')}. Saldo baru: Rp ${balanceAfter.toLocaleString('id-ID')}.</p>`);
       console.log(`Berhasil, ID: ${order.id} | Jumlah: Rp ${amountRefund}`);
     } catch (e) {
       console.error(`Gagal refund ID: ${order.id} | ${e}`);

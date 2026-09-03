@@ -3,6 +3,7 @@ Description=SMM Panel - Cron: Sync Provider Services
 After=network.target
 
 [Service]
+Environment=PATH=/home/padsu/.local/bin:/usr/bin:/bin
 Type=oneshot
 User=padsu
 WorkingDirectory=/home/padsu/scripts/smm-panel

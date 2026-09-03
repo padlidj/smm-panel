@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifySignature } from '@/lib/midtrans';
+import { notifyUser } from '@/lib/notify';
 
 export async function POST(req: Request) {
   try {
@@ -17,12 +18,13 @@ export async function POST(req: Request) {
 
     const isSuccess = (transaction_status === 'settlement' || transaction_status === 'capture') && fraud_status === 'accept';
     if (isSuccess) {
+      let balanceAfter = 0;
       await prisma.$transaction(async (tx) => {
         await tx.deposit.update({ where: { id: deposit.id }, data: { status: 'SUCCESS' } });
         const user = await tx.user.findUnique({ where: { id: deposit.user_id } });
         if (!user) throw new Error('User not found');
         const balanceBefore = Number(user.balance);
-        const balanceAfter = balanceBefore + Number(deposit.net);
+        balanceAfter = balanceBefore + Number(deposit.net);
         await tx.user.update({ where: { id: deposit.user_id }, data: { balance: balanceAfter } });
         await tx.balanceLog.create({
           data: {
@@ -31,6 +33,8 @@ export async function POST(req: Request) {
           },
         });
       });
+      void notifyUser(deposit.user_id, 'deposit', `Deposit #${deposit.id} berhasil`,
+        `<p>Deposit Rp ${Number(deposit.net).toLocaleString('id-ID')} masuk. Saldo: Rp ${balanceAfter.toLocaleString('id-ID')}</p>`);
       return NextResponse.json({ status: true, message: 'Deposit approved' });
     }
 

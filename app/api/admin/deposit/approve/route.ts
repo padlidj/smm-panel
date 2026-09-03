@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { notifyUser } from '@/lib/notify';
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -33,6 +34,9 @@ export async function POST(req: Request) {
         },
       });
     });
+    const after = await prisma.user.findUnique({ where: { id: deposit.user_id }, select: { balance: true } });
+    void notifyUser(deposit.user_id, 'deposit', `Deposit #${deposit.id} disetujui`,
+      `<p>Deposit Rp ${Number(deposit.net).toLocaleString('id-ID')} berhasil. Saldo: Rp ${Number(after?.balance || 0).toLocaleString('id-ID')}</p>`);
     return NextResponse.json({ message: 'Deposit approved' });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

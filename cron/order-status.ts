@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { checkProviderStatus } from '../lib/provider';
+import { notifyUser } from '../lib/notify';
 
 async function main() {
   const orders = await prisma.order.findMany({
@@ -30,6 +31,11 @@ async function main() {
     if (result.remains !== null) updateData.remains = result.remains;
 
     await prisma.order.update({ where: { id: order.id }, data: updateData });
+
+    if (result.status && result.status !== order.status && ['SUCCESS', 'ERROR', 'PARTIAL'].includes(result.status)) {
+      void notifyUser(order.user_id, 'order', `Pesanan #${order.id} ${result.status}`,
+        `<p>Pesanan <b>#${order.id}</b> (${order.service_name}) status berubah: <b>${result.status}</b>.</p><p>Target: ${order.target} · Jumlah: ${order.quantity}</p>`);
+    }
 
     console.log(`Berhasil, ID: ${order.id} | Status: ${result.status || order.status}`);
   }
