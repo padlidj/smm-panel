@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination } from '@/components/ui/pagination';
+import { confirmDelete } from '@/lib/admin-client';
 
 const PER_PAGE = 20;
 
@@ -82,7 +83,7 @@ export function OrderListClient({ orders, total, page, status, username, from, t
                   <TableCell>{o.remains}</TableCell>
                   <TableCell><Badge variant={statusColor(o.status) as any}>{o.status}</Badge></TableCell>
                   <TableCell>{new Date(o.created_at).toLocaleString('id-ID')}</TableCell>
-                  <TableCell><Link href={`/admin/order/detail/${o.id}`}><Button variant="secondary" size="sm">View</Button></Link></TableCell>
+                  <TableCell><Link href={`/admin/order/detail/${o.id}`}><Button variant="secondary" size="sm">View</Button></Link><Button variant="destructive" size="sm" className="ml-1" onClick={confirmDelete('/api/admin/order/delete', o.id)}>Hapus</Button></TableCell>
                 </TableRow>
               ))}
               {orders.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">No orders found</TableCell></TableRow>}

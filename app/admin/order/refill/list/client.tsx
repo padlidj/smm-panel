@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination } from '@/components/ui/pagination';
-import { postForm } from '@/lib/admin-client';
+import { postForm, confirmDelete } from '@/lib/admin-client';
 
 const PER_PAGE = 20;
 const STATUSES = ['PENDING', 'PROCESSING', 'SUCCESS', 'ERROR'];
@@ -50,6 +50,7 @@ export function RefillListClient({ refills, total, page, status }: any) {
                 <TableHead>Price</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead>Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -70,10 +71,11 @@ export function RefillListClient({ refills, total, page, status }: any) {
                     </Select>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString('id-ID')}</TableCell>
+                  <TableCell><Button variant="destructive" size="sm" onClick={confirmDelete('/api/admin/order/refill/delete', r.id)}>Hapus</Button></TableCell>
                 </TableRow>
               ))}
               {refills.length === 0 && (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Tidak ada data</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Tidak ada data</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
