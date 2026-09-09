@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifySignature } from '@/lib/midtrans';
 import { notifyUser } from '@/lib/notify';
+import { creditGuard } from '@/lib/balance';
 
 export async function POST(req: Request) {
   try {
@@ -27,11 +28,9 @@ export async function POST(req: Request) {
             data: { status: 'SUCCESS' },
           });
           if (claimed.count === 0) throw new Error('ALREADY_PROCESSED');
-          const user = await tx.user.findUnique({ where: { id: deposit.user_id } });
-          if (!user) throw new Error('User not found');
-          const balanceBefore = Number(user.balance);
-          balanceAfter = balanceBefore + Number(deposit.net);
-          await tx.$executeRaw`UPDATE users SET balance = balance + ${deposit.net}, updated_at = NOW() WHERE id = ${deposit.user_id}`;
+          const credited = await creditGuard(tx, deposit.user_id, Number(deposit.net));
+          const balanceBefore = credited.balanceBefore;
+          balanceAfter = credited.balanceAfter;
           await tx.balanceLog.create({
             data: {
               user_id: deposit.user_id, type: 'PLUS', action: 'Deposit', amount: deposit.net,

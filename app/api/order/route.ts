@@ -2,19 +2,22 @@ import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { executeProviderOrder } from '@/lib/provider';
+import { orderTarget, positiveInt } from '@/lib/order-input';
+import { executeProviderOrder, DISPATCH_READY } from '@/lib/provider';
 import { debitGuard } from '@/lib/balance';
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session || (session.user as any)?.role !== 'user') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const userId = Number((session.user as any).id);
   const body = await req.json();
-  const { service_id, target, custom_comments, username } = body;
-  const quantity = Number(body.quantity);
+  const { custom_comments, username } = body;
+  const service_id = positiveInt(body.service_id);
+  const target = orderTarget(body.target);
+  const quantity = positiveInt(body.quantity);
 
-  if (!Number.isInteger(quantity) || quantity <= 0) {
+  if (!service_id || !target || !Number.isInteger(quantity) || quantity <= 0) {
     return NextResponse.json({ status: false, message: 'Jumlah tidak valid.' });
   }
 
@@ -39,8 +42,8 @@ export async function POST(req: Request) {
     return tx.order.create({
       data: {
         user_id: userId, service_id: service.id, provider_id: service.provider_id,
-        service_name: service.name, target: String(target), quantity, price: totalPrice, profit: totalProfit,
-        status: 'PENDING', ip_address: req.headers.get('x-real-ip') || '',
+        service_name: service.name, target, quantity, price: totalPrice, profit: totalProfit,
+        status: 'PENDING', provider_order_log: DISPATCH_READY, ip_address: req.headers.get('x-real-ip') || '',
         custom_comments, username,
       },
     });
@@ -48,7 +51,7 @@ export async function POST(req: Request) {
 
   if (service.provider.name !== 'MANUAL') {
     executeProviderOrder(service.provider, order, { service, target, quantity, custom_comments, username })
-      .catch((e: any) => prisma.order.update({ where: { id: order.id }, data: { status: 'ERROR', provider_order_log: e.message } }));
+      .catch(() => console.error(`Order #${order.id}: dispatch requires review`));
   }
 
   return NextResponse.json({ status: true, order_id: order.id, message: 'Pesanan berhasil dibuat.' });

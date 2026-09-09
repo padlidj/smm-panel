@@ -1,7 +1,7 @@
 import { HTMLAttributes, TdHTMLAttributes, ThHTMLAttributes, forwardRef } from 'react';
 
 const Table = forwardRef<HTMLTableElement, HTMLAttributes<HTMLTableElement>>(({ className = '', ...props }, ref) => (
-  <div className="relative w-full overflow-auto">
+  <div className="relative w-full overflow-x-auto -webkit-overflow-scrolling-touch">
     <table ref={ref} className={`w-full caption-bottom text-sm ${className}`} {...props} />
   </div>
 ));
@@ -23,12 +23,12 @@ const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTableRowElem
 TableRow.displayName = 'TableRow';
 
 const TableHead = forwardRef<HTMLTableCellElement, ThHTMLAttributes<HTMLTableCellElement>>(({ className = '', ...props }, ref) => (
-  <th ref={ref} className={`h-12 px-4 text-left align-middle font-medium text-muted-foreground ${className}`} {...props} />
+  <th ref={ref} className={`h-12 px-2 sm:px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap ${className}`} {...props} />
 ));
 TableHead.displayName = 'TableHead';
 
 const TableCell = forwardRef<HTMLTableCellElement, TdHTMLAttributes<HTMLTableCellElement>>(({ className = '', ...props }, ref) => (
-  <td ref={ref} className={`p-4 align-middle ${className}`} {...props} />
+  <td ref={ref} className={`p-2 sm:p-4 align-middle whitespace-nowrap ${className}`} {...props} />
 ));
 TableCell.displayName = 'TableCell';
 

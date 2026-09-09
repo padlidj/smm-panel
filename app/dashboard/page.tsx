@@ -49,13 +49,13 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Welcome back, {user.username}</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold truncate">Welcome back, {user.username}</h1>
           <p className="text-sm text-muted-foreground">Manage your orders and account.</p>
         </div>
-        <a href="/dashboard/order/new"><Button>New Order</Button></a>
+        <a href="/dashboard/order/new" className="shrink-0"><Button className="w-full sm:w-auto">New Order</Button></a>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -63,13 +63,13 @@ export default async function DashboardPage() {
           <a key={s.label} href={s.href}>
             <Card className="hover:bg-accent/50 transition-colors">
               <CardHeader><CardTitle className="text-sm text-muted-foreground font-medium">{s.label}</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-bold">{s.value}</div></CardContent>
+              <CardContent><div className="text-xl sm:text-2xl font-bold">{s.value}</div></CardContent>
             </Card>
           </a>
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Revenue (14 Hari)</CardTitle></CardHeader>
           <CardContent><RevenueChart data={chartData} /></CardContent>
@@ -85,10 +85,10 @@ export default async function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 {recentOrders.map(o => (
-                  <a key={o.id} href={`/dashboard/order/detail/${o.id}`} className="flex items-center justify-between rounded-md border p-3 hover:bg-accent/50 transition-colors">
-                    <div className="min-w-0">
+                  <a key={o.id} href={`/dashboard/order/detail/${o.id}`} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 hover:bg-accent/50 transition-colors">
+                    <div className="min-w-0 flex-1">
                       <div className="font-medium truncate">#{o.id} - {o.service_name}</div>
-                      <div className="text-xs text-muted-foreground">{o.target} × {o.quantity} · {new Date(o.created_at).toLocaleString('id-ID')}</div>
+                      <div className="text-xs text-muted-foreground break-all">{o.target} × {o.quantity} · {new Date(o.created_at).toLocaleString('id-ID')}</div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <span className="text-sm font-medium">Rp {Number(o.price).toLocaleString('id-ID')}</span>

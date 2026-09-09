@@ -14,7 +14,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <UserSidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <UserTopbar />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 p-3 sm:p-4 lg:p-6">{children}</main>
       </div>
       <InfoPopup />
     </div>

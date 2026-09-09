@@ -9,11 +9,16 @@ export async function POST(req: Request) {
 
   try {
     const { id, username, email, balance, status, role } = await req.json();
-    const userId = parseInt(id);
-    const newBalance = parseInt(balance);
+    if ([id, balance].some(value => typeof value !== 'number' && (typeof value !== 'string' || !value.trim())))
+      return NextResponse.json({ error: 'Invalid balance or user ID' }, { status: 400 });
+    const userId = Number(id);
+    const newBalance = Number(balance);
+    if (!Number.isSafeInteger(userId) || userId <= 0 || !Number.isSafeInteger(newBalance) || newBalance < 0)
+      return NextResponse.json({ error: 'Invalid balance or user ID' }, { status: 400 });
 
     const user = await prisma.$transaction(async (tx) => {
-      const existing = await tx.user.findUnique({ where: { id: userId } });
+      // Lock before reading: an absolute admin adjustment must log the balance it replaces.
+      const [existing] = await tx.$queryRaw<{ balance: unknown }[]>`SELECT balance FROM users WHERE id = ${userId} FOR UPDATE`;
       if (!existing) throw new Error('User not found');
 
       const updated = await tx.user.update({

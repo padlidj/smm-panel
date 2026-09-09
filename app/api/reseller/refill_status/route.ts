@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getApiUser } from '@/lib/reseller';
+import { getApiUser, getApiParams } from '@/lib/reseller';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(req: Request) {
-  const user = await getApiUser(req);
+  const body = await getApiParams(req);
+  const user = await getApiUser(req, body);
   if (!user) return NextResponse.json({ status: false, data: { message: 'Invalid API key' } }, { status: 403 });
 
-  const body = await req.json();
   const { id } = body;
   if (!id) return NextResponse.json({ status: false, data: { message: 'Missing refill ID' } }, { status: 400 });
 

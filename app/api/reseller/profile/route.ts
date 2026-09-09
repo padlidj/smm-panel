@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getApiUser } from '@/lib/reseller';
+import { getApiUser, getApiParams } from '@/lib/reseller';
 
 export async function GET(req: Request) {
-  const user = await getApiUser(req);
+  const user = await getApiUser(req, await getApiParams(req));
   if (!user) return NextResponse.json({ status: false, message: 'Invalid API key' });
 
   return NextResponse.json({
@@ -18,3 +18,6 @@ export async function GET(req: Request) {
     },
   });
 }
+
+// Standard SMM clients POST here
+export const POST = GET;

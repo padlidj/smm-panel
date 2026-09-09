@@ -70,6 +70,18 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Prevent iOS Safari auto-zoom on input focus (zooms if font < 16px) */
+  @media (max-width: 1023px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+  }
+  /* Prevent select elements from overflowing their container due to long option text */
+  select {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 @layer components {

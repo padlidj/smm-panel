@@ -3,7 +3,7 @@ import { checkRefillStatus } from '../lib/provider';
 
 async function main() {
   const refills = await prisma.orderRefill.findMany({
-    where: { status: { in: ['PENDING', 'PROCESSING'] } },
+    where: { status: { in: ['PENDING', 'PROCESSING'] }, provider_refill_id: { not: null } },
     include: { order: { include: { service_provider: true } } },
     take: 50,
     orderBy: { id: 'desc' },

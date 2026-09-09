@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getApiUser } from '@/lib/reseller';
+import { getApiUser, getApiParams } from '@/lib/reseller';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(req: Request) {
-  const user = await getApiUser(req);
+  const body = await getApiParams(req);
+  const user = await getApiUser(req, body);
   if (!user) return NextResponse.json({ status: false, message: 'Invalid API key' });
-
-  const body = await req.json();
-  const { order_id } = body;
+  const order_id = body.order_id ?? body.id; // standard SMM API uses `id`
 
   if (!order_id) {
     return NextResponse.json({ status: false, message: 'Missing order_id' });

@@ -1,12 +1,12 @@
 import { HTMLAttributes, forwardRef } from 'react';
 
 const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(({ className = '', ...props }, ref) => (
-  <div ref={ref} className={`rounded-lg border bg-card text-card-foreground shadow-sm ${className}`} {...props} />
+  <div ref={ref} className={`rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden min-w-0 ${className}`} {...props} />
 ));
 Card.displayName = 'Card';
 
 const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(({ className = '', ...props }, ref) => (
-  <div ref={ref} className={`flex flex-col space-y-1.5 p-6 ${className}`} {...props} />
+  <div ref={ref} className={`flex flex-col space-y-1.5 p-6 overflow-hidden ${className}`} {...props} />
 ));
 CardHeader.displayName = 'CardHeader';
 
@@ -21,7 +21,7 @@ const CardDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLPara
 CardDescription.displayName = 'CardDescription';
 
 const CardContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(({ className = '', ...props }, ref) => (
-  <div ref={ref} className={`p-6 pt-0 ${className}`} {...props} />
+  <div ref={ref} className={`p-6 pt-0 overflow-hidden ${className}`} {...props} />
 ));
 CardContent.displayName = 'CardContent';
 

@@ -2,16 +2,19 @@ import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { executeProviderOrder } from '@/lib/provider';
+import { orderTarget, positiveInt } from '@/lib/order-input';
+import { executeProviderOrder, DISPATCH_READY } from '@/lib/provider';
 import { debitGuard } from '@/lib/balance';
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session || (session.user as any)?.role !== 'user') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const userId = Number((session.user as any).id);
   const body = await req.json();
-  const { service_id, targets } = body;
+  const { targets } = body;
+  const service_id = positiveInt(body.service_id);
+  if (!service_id) return NextResponse.json({ status: false, message: 'Layanan tidak valid.' });
   const ip = req.headers.get('x-real-ip') || '';
 
   if (!Array.isArray(targets) || targets.length === 0) return NextResponse.json({ status: false, message: 'Target tidak boleh kosong.' });
@@ -29,8 +32,8 @@ export async function POST(req: Request) {
   let totalPrice = 0;
 
   for (const t of targets) {
-    const target = String(t.target ?? '').trim();
-    const quantity = Number(t.quantity);
+    const target = orderTarget(t?.target);
+    const quantity = positiveInt(t?.quantity);
     if (!target || !Number.isInteger(quantity) || quantity < service.min || quantity > service.max) {
       errors.push({ target: target || '(kosong)', error: `Jumlah harus ${service.min}-${service.max}.` });
       continue;
@@ -55,7 +58,7 @@ export async function POST(req: Request) {
           user_id: userId, service_id: service.id, provider_id: service.provider_id,
           service_name: service.name, target: o.target, quantity: o.quantity, price: o.price,
           profit: Math.ceil((profitPerUnit / 1000) * o.quantity),
-          status: 'PENDING', ip_address: ip,
+          status: 'PENDING', provider_order_log: DISPATCH_READY, ip_address: ip,
         },
       });
       result.push(order);
@@ -66,7 +69,7 @@ export async function POST(req: Request) {
   for (const order of created) {
     if (service.provider.name !== 'MANUAL') {
       executeProviderOrder(service.provider, order, { service, target: order.target, quantity: order.quantity })
-        .catch((e: any) => prisma.order.update({ where: { id: order.id }, data: { status: 'ERROR', provider_order_log: e.message } }));
+        .catch(() => console.error(`Order #${order.id}: dispatch requires review`));
     }
   }
 

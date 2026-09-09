@@ -1,34 +1,56 @@
 import { prisma } from './prisma';
 import get from 'lodash.get';
+import { orderTarget, positiveInt } from './order-input';
 
-// ponytail: flat replacement only, no nested template recursion. Add when providers need merge logic.
+// Substitute only original template tokens; inserted values are literal, never templates.
+function replaceTemplate(value: any, values: Record<string, any>): any {
+  if (typeof value === 'string') return value.replace(/{(\w+)}/g, (token, key) =>
+    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : token);
+  if (Array.isArray(value)) return value.map((item) => replaceTemplate(item, values));
+  if (value && typeof value === 'object') {
+    const result: any = {};
+    for (const [key, item] of Object.entries(value)) result[key] = replaceTemplate(item, values);
+    return result;
+  }
+  return value;
+}
+
+// Fresh rows alone may be dispatched. Legacy null logs are ambiguous, not proof of no send.
+export const DISPATCH_READY = 'DISPATCH_READY';
+const DISPATCH_STARTED = 'DISPATCH_STARTED: manual reconciliation required';
+function responseId(value: unknown) {
+  return (typeof value === 'string' && value.trim()) ||
+    (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) ? String(value).trim() : null;
+}
+function explicitlyRejected(data: any) {
+  return data?.status === false || data?.success === false ||
+    (typeof data?.error === 'string' && data.error.trim().length > 0);
+}
+// ponytail: no remote exactly-once guarantee. Unknown outcomes require operator reconciliation;
+// attach the verified upstream ID for polling. Add automatic retries only with upstream idempotency.
 export async function executeProviderOrder(provider: any, order: any, extra: any) {
   try {
+    if (!orderTarget(order.target) || !positiveInt(order.quantity)) return { success: false, error: 'Invalid order target or quantity' };
+    if (provider.id !== order.provider_id || (extra.service && extra.service.provider_id !== order.provider_id))
+      return { success: false, error: 'Provider snapshot mismatch' };
     const config = provider.order_config || {};
     const endpoint = config.endpoint || provider.endpoint?.order;
     const bodyTemplate = config.body || {};
 
     // Replace placeholders in body template
-    const replace = (v: any): any => {
-      if (typeof v === 'string') {
-        return v
-          .replace(/{service_id}/g, extra.service?.provider_service_id || '')
-          .replace(/{target}/g, order.target)
-          .replace(/{quantity}/g, String(order.quantity))
-          .replace(/{custom_comments}/g, order.custom_comments || '')
-          .replace(/{username}/g, order.username || '')
-          .replace(/{order_id}/g, String(order.id));
-      }
-      if (Array.isArray(v)) return v.map(replace);
-      if (v && typeof v === 'object') {
-        const o: any = {};
-        for (const [k, val] of Object.entries(v)) o[k] = replace(val);
-        return o;
-      }
-      return v;
+    const values = {
+      service_id: extra.service?.provider_service_id || '',
+      target: order.target,
+      quantity: String(order.quantity),
+      custom_comments: order.custom_comments || '',
+      username: order.username || '',
+      order_id: String(order.id),
+      provider_id: provider.provider_id || '',
+      api_key: provider.provider_key || '',
+      api_secret: provider.provider_secret || '',
     };
 
-    const body = replace(bodyTemplate);
+    const body = replaceTemplate(bodyTemplate, values);
 
     // POST form data or JSON
     const isFormData = config.content_type === 'application/x-www-form-urlencoded';
@@ -50,23 +72,36 @@ export async function executeProviderOrder(provider: any, order: any, extra: any
     };
     // Replace auth placeholders in headers
     for (const [k, v] of Object.entries(headers)) {
-      headers[k] = String(v)
-        .replace(/{api_key}/g, provider.provider_key)
-        .replace(/{api_secret}/g, provider.provider_secret || '');
+      headers[k] = replaceTemplate(String(v), { api_key: provider.provider_key, api_secret: provider.provider_secret || '' });
     }
 
+    const claimed = await prisma.order.updateMany({
+      where: { id: order.id, provider_id: provider.id, status: 'PENDING', is_refund: false,
+        provider_order_id: null, provider_order_log: DISPATCH_READY },
+      data: { provider_order_log: DISPATCH_STARTED },
+    });
+    if (claimed.count === 0) return { success: false, error: 'Order already dispatched or requires review' };
     const res = await fetch(endpoint, { method: 'POST', headers, body: reqBody });
     const data = await res.json();
 
     // Extract provider_order_id from response using dot-path
     const orderPath = config.response?.order?.order_id || 'order_id';
-    const providerOrderId = get(data, orderPath) || null;
+    const providerOrderId = responseId(get(data, orderPath));
     const providerLog = JSON.stringify(data);
+
+    if (!providerOrderId) {
+      const rejected = res.ok && explicitlyRejected(data);
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { status: rejected ? 'ERROR' : 'PENDING', provider_order_log: providerLog },
+      });
+      return { success: false, error: rejected ? 'Provider rejected order' : 'Unknown provider outcome; manual review required', response: data };
+    }
 
     await prisma.order.update({
       where: { id: order.id },
       data: {
-        provider_order_id: providerOrderId ? String(providerOrderId) : null,
+        provider_order_id: String(providerOrderId),
         provider_order_log: providerLog,
         status: 'PROCESSING',
       },
@@ -74,41 +109,28 @@ export async function executeProviderOrder(provider: any, order: any, extra: any
 
     return { success: true, provider_order_id: providerOrderId, response: data };
   } catch (e: any) {
-    await prisma.order.update({
-      where: { id: order.id },
-      data: { status: 'ERROR', provider_order_log: e.message },
-    });
-    return { success: false, error: e.message };
+    // The durable claim survives network, parse, and persistence failures. Never refund/replay it.
+    console.error(`Order #${order.id}: provider outcome requires review`);
+    return { success: false, error: 'Unknown provider outcome; manual review required' };
   }
 }
 
-// ponytail: flat placeholder replacement, mirrors executeProviderOrder. Add nested recursion when providers need it.
 export async function checkProviderStatus(provider: any, order: any) {
   try {
     const config = provider.status_config || {};
     const endpoint = config.endpoint || provider.endpoint?.status;
     if (!endpoint || !order.provider_order_id) return null;
 
-    const replace = (v: any): any => {
-      if (typeof v === 'string') {
-        return v
-          .replace(/{order_id}/g, order.provider_order_id)
-          .replace(/{provider_id}/g, provider.provider_id || '')
-          .replace(/{api_key}/g, provider.provider_key || '')
-          .replace(/{api_secret}/g, provider.provider_secret || '')
-          .replace(/{key}/g, provider.provider_key || '');
-      }
-      if (Array.isArray(v)) return v.map(replace);
-      if (v && typeof v === 'object') {
-        const o: any = {};
-        for (const [k, val] of Object.entries(v)) o[k] = replace(val);
-        return o;
-      }
-      return v;
+    const values = {
+      order_id: order.provider_order_id,
+      provider_id: provider.provider_id || '',
+      api_key: provider.provider_key || '',
+      api_secret: provider.provider_secret || '',
+      key: provider.provider_key || '',
     };
 
     const bodyTemplate = config.body || config.request || {};
-    const body = replace(bodyTemplate);
+    const body = replaceTemplate(bodyTemplate, values);
     const isFormData = config.content_type === 'application/x-www-form-urlencoded' || !config.content_type;
     let reqBody: string;
     let contentType: string;
@@ -127,9 +149,7 @@ export async function checkProviderStatus(provider: any, order: any) {
       ...(config.headers || {}),
     };
     for (const [k, v] of Object.entries(headers)) {
-      headers[k] = String(v)
-        .replace(/{api_key}/g, provider.provider_key)
-        .replace(/{api_secret}/g, provider.provider_secret || '');
+      headers[k] = replaceTemplate(String(v), { api_key: provider.provider_key, api_secret: provider.provider_secret || '' });
     }
 
     const res = await fetch(endpoint, { method: 'POST', headers, body: reqBody });
@@ -168,30 +188,25 @@ export async function checkProviderStatus(provider: any, order: any) {
 // ponytail: mirrors executeProviderOrder. Add when refill providers need merge logic.
 export async function executeProviderRefill(provider: any, refill: any) {
   try {
+    if (!orderTarget(refill.target) || !positiveInt(refill.quantity)) return { success: false, error: 'Invalid refill target or quantity' };
+    if (provider.id !== refill.order?.provider_id) return { success: false, error: 'Provider snapshot mismatch' };
     const config = provider.refill_config || {};
     const endpoint = config.endpoint || provider.endpoint?.refill;
     if (!endpoint) return { success: false, error: 'No refill endpoint' };
 
-    const replace = (v: any): any => {
-      if (typeof v === 'string') {
-        return v
-          .replace(/{service_id}/g, refill.order?.service?.provider_service_id || '')
-          .replace(/{refill_service_id}/g, refill.order?.service?.refill_provider_service_id || refill.order?.service?.provider_service_id || '')
-          .replace(/{target}/g, refill.target)
-          .replace(/{quantity}/g, String(refill.quantity))
-          .replace(/{order_id}/g, refill.order?.provider_order_id || '')
-          .replace(/{refill_id}/g, String(refill.id));
-      }
-      if (Array.isArray(v)) return v.map(replace);
-      if (v && typeof v === 'object') {
-        const o: any = {};
-        for (const [k, val] of Object.entries(v)) o[k] = replace(val);
-        return o;
-      }
-      return v;
+    const values = {
+      service_id: refill.order?.service?.provider_service_id || '',
+      refill_service_id: refill.order?.service?.refill_provider_service_id || refill.order?.service?.provider_service_id || '',
+      target: refill.target,
+      quantity: String(refill.quantity),
+      order_id: refill.order?.provider_order_id || '',
+      refill_id: String(refill.id),
+      provider_id: provider.provider_id || '',
+      api_key: provider.provider_key || '',
+      api_secret: provider.provider_secret || '',
     };
 
-    const body = replace(config.body || {});
+    const body = replaceTemplate(config.body || {}, values);
     const isFormData = config.content_type === 'application/x-www-form-urlencoded';
     let reqBody: string, contentType: string;
     if (isFormData) {
@@ -205,28 +220,36 @@ export async function executeProviderRefill(provider: any, refill: any) {
     }
     const headers: Record<string, string> = { 'Content-Type': contentType, ...(config.headers || {}) };
     for (const [k, v] of Object.entries(headers)) {
-      headers[k] = String(v).replace(/{api_key}/g, provider.provider_key).replace(/{api_secret}/g, provider.provider_secret || '');
+      headers[k] = replaceTemplate(String(v), { api_key: provider.provider_key, api_secret: provider.provider_secret || '' });
     }
 
+    // PROCESSING with no upstream ID is a durable in-flight/review claim, never retry automatically.
+    const claimed = await prisma.orderRefill.updateMany({
+      where: { id: refill.id, status: 'PENDING', provider_refill_id: null },
+      data: { status: 'PROCESSING' },
+    });
+    if (claimed.count === 0) return { success: false, error: 'Refill already dispatched or requires review' };
     const res = await fetch(endpoint, { method: 'POST', headers, body: reqBody });
     const data = await res.json();
 
     const refillPath = config.response?.refill?.refill_id || config.response?.refill_id || 'refill_id';
-    const providerRefillId = get(data, refillPath) || null;
+    const providerRefillId = responseId(get(data, refillPath));
+    if (!providerRefillId) {
+      const rejected = res.ok && explicitlyRejected(data);
+      if (rejected) await prisma.orderRefill.update({ where: { id: refill.id }, data: { status: 'ERROR' } });
+      return { success: false, error: rejected ? 'Provider rejected refill' : 'Unknown refill outcome; manual review required', response: data };
+    }
     await prisma.orderRefill.update({
       where: { id: refill.id },
       data: {
-        provider_refill_id: providerRefillId ? String(providerRefillId) : null,
+        provider_refill_id: String(providerRefillId),
         status: 'PROCESSING',
       },
     });
     return { success: true, provider_refill_id: providerRefillId, response: data };
   } catch (e: any) {
-    await prisma.orderRefill.update({
-      where: { id: refill.id },
-      data: { status: 'ERROR' },
-    });
-    return { success: false, error: e.message };
+    console.error(`Refill #${refill.id}: provider outcome requires review`);
+    return { success: false, error: 'Unknown refill outcome; manual review required' };
   }
 }
 
@@ -237,27 +260,17 @@ export async function checkRefillStatus(provider: any, refill: any) {
     const endpoint = config.endpoint || provider.endpoint?.refill_status || provider.endpoint?.status;
     if (!endpoint || !refill.provider_refill_id) return null;
 
-    const replace = (v: any): any => {
-      if (typeof v === 'string') {
-        return v
-          .replace(/{refill_id}/g, refill.provider_refill_id)
-          .replace(/{order_id}/g, refill.order?.provider_order_id || '')
-          .replace(/{provider_id}/g, provider.provider_id || '')
-          .replace(/{api_key}/g, provider.provider_key || '')
-          .replace(/{api_secret}/g, provider.provider_secret || '')
-          .replace(/{key}/g, provider.provider_key || '');
-      }
-      if (Array.isArray(v)) return v.map(replace);
-      if (v && typeof v === 'object') {
-        const o: any = {};
-        for (const [k, val] of Object.entries(v)) o[k] = replace(val);
-        return o;
-      }
-      return v;
+    const values = {
+      refill_id: refill.provider_refill_id,
+      order_id: refill.order?.provider_order_id || '',
+      provider_id: provider.provider_id || '',
+      api_key: provider.provider_key || '',
+      api_secret: provider.provider_secret || '',
+      key: provider.provider_key || '',
     };
 
     const bodyTemplate = config.body || config.request || {};
-    const body = replace(bodyTemplate);
+    const body = replaceTemplate(bodyTemplate, values);
     const isFormData = config.content_type === 'application/x-www-form-urlencoded' || !config.content_type;
     let reqBody: string, contentType: string;
     if (isFormData) {
@@ -271,7 +284,7 @@ export async function checkRefillStatus(provider: any, refill: any) {
     }
     const headers: Record<string, string> = { 'Content-Type': contentType, ...(config.headers || {}) };
     for (const [k, v] of Object.entries(headers)) {
-      headers[k] = String(v).replace(/{api_key}/g, provider.provider_key).replace(/{api_secret}/g, provider.provider_secret || '');
+      headers[k] = replaceTemplate(String(v), { api_key: provider.provider_key, api_secret: provider.provider_secret || '' });
     }
 
     const res = await fetch(endpoint, { method: 'POST', headers, body: reqBody });
@@ -299,24 +312,14 @@ export async function syncProviderServices(provider: any) {
     const endpoint = config.endpoint || provider.endpoint?.services;
     if (!endpoint) return null;
 
-    const replace = (v: any): any => {
-      if (typeof v === 'string') {
-        return v
-          .replace(/{provider_id}/g, provider.provider_id || '')
-          .replace(/{api_key}/g, provider.provider_key || '')
-          .replace(/{api_secret}/g, provider.provider_secret || '');
-      }
-      if (Array.isArray(v)) return v.map(replace);
-      if (v && typeof v === 'object') {
-        const o: any = {};
-        for (const [k, val] of Object.entries(v)) o[k] = replace(val);
-        return o;
-      }
-      return v;
+    const values = {
+      provider_id: provider.provider_id || '',
+      api_key: provider.provider_key || '',
+      api_secret: provider.provider_secret || '',
     };
 
     const bodyTemplate = config.body || config.request || {};
-    const body = replace(bodyTemplate);
+    const body = replaceTemplate(bodyTemplate, values);
     const isFormData = config.content_type === 'application/x-www-form-urlencoded' || !config.content_type;
     let reqBody: string;
     let contentType: string;
@@ -335,9 +338,7 @@ export async function syncProviderServices(provider: any) {
       ...(config.headers || {}),
     };
     for (const [k, v] of Object.entries(headers)) {
-      headers[k] = String(v)
-        .replace(/{api_key}/g, provider.provider_key)
-        .replace(/{api_secret}/g, provider.provider_secret || '');
+      headers[k] = replaceTemplate(String(v), { api_key: provider.provider_key, api_secret: provider.provider_secret || '' });
     }
 
     const res = await fetch(endpoint, { method: 'POST', headers, body: reqBody });

@@ -24,12 +24,12 @@ export function OrderHistoryClient({ orders, total, page, status }: any) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Order History</h1>
-        <Link href="/dashboard/order/new"><Button size="sm">New Order</Button></Link>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h1 className="text-xl sm:text-2xl font-bold">Order History</h1>
+        <Link href="/dashboard/order/new" className="w-full sm:w-auto"><Button size="sm" className="w-full sm:w-auto">New Order</Button></Link>
       </div>
       <div className="flex items-center gap-3">
-        <Select value={st} onChange={e => { setSt(e.target.value); router.push(`/dashboard/order/history${e.target.value ? `?status=${e.target.value}` : ''}`); }} className="max-w-44">
+        <Select value={st} onChange={e => { setSt(e.target.value); router.push(`/dashboard/order/history${e.target.value ? `?status=${e.target.value}` : ''}`); }} className="w-full sm:max-w-44">
           <option value="">All Status</option>
           {['PENDING', 'PROCESSING', 'SUCCESS', 'ERROR', 'PARTIAL'].map(s => <option key={s} value={s}>{s}</option>)}
         </Select>

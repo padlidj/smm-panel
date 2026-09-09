@@ -66,9 +66,30 @@ export const authOptions: NextAuthOptions = {
         token.level = (user as any).level;
         token.balance = (user as any).balance;
       }
+      const id = Number(token.id);
+      try {
+        if (Number.isSafeInteger(id) && id > 0 && token.role === 'admin') {
+          const admin = await prisma.admin.findUnique({ where: { id }, select: { status: true, level: true } });
+          if (admin?.status) {
+            token.level = admin.level;
+            delete token.balance;
+            return token;
+          }
+        } else if (Number.isSafeInteger(id) && id > 0 && token.role === 'user') {
+          const account = await prisma.user.findUnique({ where: { id }, select: { status: true, balance: true } });
+          if (account?.status === 'ACTIVE') {
+            delete token.level;
+            token.balance = Number(account.balance);
+            return token;
+          }
+        }
+      } catch { /* DB unavailable: revoke authority, never trust stale claims. */ }
+      for (const key of ['id', 'role', 'level', 'balance', 'sub', 'name', 'email', 'picture']) delete token[key];
       return token;
     },
     async session({ session, token }) {
+      // NextAuth v4 getServerSession maps an empty body to null (not a truthy user-less session).
+      if (!token.id || (token.role !== 'user' && token.role !== 'admin')) return {} as typeof session;
       if (session.user) {
         (session.user as any).id = token.id;
         (session.user as any).role = token.role;

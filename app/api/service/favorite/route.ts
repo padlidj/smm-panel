@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session || (session.user as any)?.role !== 'user') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const userId = Number((session.user as any).id);
   const { service_id } = await req.json();
   if (!service_id) return NextResponse.json({ error: 'service_id required' }, { status: 400 });
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session || (session.user as any)?.role !== 'user') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const userId = Number((session.user as any).id);
 
   const favorites = await prisma.serviceFavorite.findMany({

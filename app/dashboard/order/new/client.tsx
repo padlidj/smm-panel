@@ -63,8 +63,8 @@ export function OrderNewClient({ categories, services, customPrices = {}, balanc
 
   return (
     <div className="max-w-5xl mx-auto space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Order Baru</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold">Order Baru</h1>
         <div className="text-sm text-muted-foreground">
           Saldo: <span className="font-bold text-primary">Rp {balance.toLocaleString('id-ID')}</span>
         </div>
@@ -108,7 +108,7 @@ export function OrderNewClient({ categories, services, customPrices = {}, balanc
             </div>
 
             {service && (
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div className="rounded-lg border bg-muted/50 p-3">
                   <div className="text-xs text-muted-foreground">Harga/K</div>
                   <div className="font-bold">Rp {rate.toLocaleString('id-ID')} {cp && <span className="text-primary text-xs">(*Khusus)</span>}</div>
@@ -117,11 +117,11 @@ export function OrderNewClient({ categories, services, customPrices = {}, balanc
                   <div className="text-xs text-muted-foreground">Min</div>
                   <div className="font-bold">{service.min.toLocaleString('id-ID')}</div>
                 </div>
-                <div className="rounded-lg border bg-muted/50 p-3">
+                <div className="rounded-lg border bg-muted/50 p-3 col-span-2 sm:col-span-1">
                   <div className="text-xs text-muted-foreground">Maks</div>
                   <div className="font-bold">{service.max.toLocaleString('id-ID')}</div>
                 </div>
-                {service.description && <div className="col-span-3 rounded-lg border bg-muted/50 p-3 text-sm text-muted-foreground">{service.description}</div>}
+                {service.description && <div className="col-span-2 sm:col-span-3 rounded-lg border bg-muted/50 p-3 text-sm text-muted-foreground">{service.description}</div>}
               </div>
             )}
 
@@ -166,8 +166,8 @@ export function OrderNewClient({ categories, services, customPrices = {}, balanc
             <CardTitle className="flex items-center gap-2"><Star className="h-4 w-4 text-amber-400" /> Ringkasan</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Layanan</span><span className="font-medium max-w-40 truncate">{service?.name || '-'}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Target</span><span className="font-medium max-w-40 truncate">{target || '-'}</span></div>
+            <div className="flex justify-between text-sm gap-2"><span className="text-muted-foreground shrink-0">Layanan</span><span className="font-medium truncate">{service?.name || '-'}</span></div>
+            <div className="flex justify-between text-sm gap-2"><span className="text-muted-foreground shrink-0">Target</span><span className="font-medium truncate break-all">{target || '-'}</span></div>
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">Jumlah</span><span className="font-medium">{(service?.type === 'CUSTOM_COMMENTS' ? customComments.split('\n').filter(l => l.trim()).length : Number(quantity || 0)).toLocaleString('id-ID')}</span></div>
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">Harga/K</span><span className="font-medium">Rp {rate.toLocaleString('id-ID')}</span></div>
             <div className="border-t pt-3 flex justify-between items-center">

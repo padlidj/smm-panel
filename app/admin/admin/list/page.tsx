@@ -1,9 +1,9 @@
 import { prisma } from '@/lib/prisma';
-import { requireAdmin } from '@/lib/admin';
+import { requireSuperAdmin } from '@/lib/admin';
 import { AdminListClient } from './client';
 
 export default async function AdminListPage() {
-  await requireAdmin();
+  await requireSuperAdmin();
   const admins = await prisma.admin.findMany({ orderBy: { id: 'asc' } });
   return <AdminListClient admins={admins} />;
 }

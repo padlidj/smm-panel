@@ -24,11 +24,11 @@ export function TicketListClient({ tickets, total, page, status }: any) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">My Tickets</h1>
-        <Link href="/dashboard/ticket/new"><Button size="sm">New Ticket</Button></Link>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h1 className="text-xl sm:text-2xl font-bold">My Tickets</h1>
+        <Link href="/dashboard/ticket/new" className="w-full sm:w-auto"><Button size="sm" className="w-full sm:w-auto">New Ticket</Button></Link>
       </div>
-      <Select value={st} onChange={e => { setSt(e.target.value); router.push(`/dashboard/ticket/list${e.target.value ? `?status=${e.target.value}` : ''}`); }} className="max-w-44">
+      <Select value={st} onChange={e => { setSt(e.target.value); router.push(`/dashboard/ticket/list${e.target.value ? `?status=${e.target.value}` : ''}`); }} className="w-full sm:max-w-44">
         <option value="">All Status</option>
         {['OPEN', 'REPLIED', 'CLOSED'].map(s => <option key={s} value={s}>{s}</option>)}
       </Select>

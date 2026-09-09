@@ -3,6 +3,7 @@ import { prisma } from './prisma';
 // Atomic conditional UPDATE — no read-then-write window, so concurrent requests
 // cannot both pass the balance check. Use this inside any tx that moves money out.
 export async function debitGuard(tx: any, userId: number, amount: number) {
+  if (!Number.isFinite(amount) || amount < 0) throw new Error('Invalid amount');
   const changed = await tx.$executeRaw`
     UPDATE users SET balance = balance - ${amount}, updated_at = NOW()
     WHERE id = ${userId} AND balance >= ${amount}`;
@@ -24,15 +25,20 @@ export async function debitBalance(userId: number, amount: number, action: strin
   });
 }
 
+export async function creditGuard(tx: any, userId: number, amount: number) {
+  if (!Number.isFinite(amount) || amount < 0) throw new Error('Invalid amount');
+  const changed = await tx.$executeRaw`
+    UPDATE users SET balance = balance + ${amount}, updated_at = NOW()
+    WHERE id = ${userId}`;
+  if (changed === 0) throw new Error('User tidak ditemukan');
+  const after = await tx.user.findUnique({ where: { id: userId }, select: { balance: true } });
+  const balanceAfter = Number(after!.balance);
+  return { balanceAfter, balanceBefore: balanceAfter - amount };
+}
+
 export async function creditBalance(userId: number, amount: number, action: string, description?: string) {
   return prisma.$transaction(async (tx) => {
-    const changed = await tx.$executeRaw`
-      UPDATE users SET balance = balance + ${amount}, updated_at = NOW()
-      WHERE id = ${userId}`;
-    if (changed === 0) throw new Error('User tidak ditemukan');
-    const after = await tx.user.findUnique({ where: { id: userId }, select: { balance: true } });
-    const balanceAfter = Number(after!.balance);
-    const balanceBefore = balanceAfter - amount;
+    const { balanceBefore, balanceAfter } = await creditGuard(tx, userId, amount);
     await tx.balanceLog.create({
       data: {
         user_id: userId, type: 'PLUS', action, amount,

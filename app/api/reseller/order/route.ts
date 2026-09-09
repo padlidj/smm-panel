@@ -1,21 +1,24 @@
 import { NextResponse } from 'next/server';
-import { getApiUser } from '@/lib/reseller';
+import { getApiUser, getApiParams } from '@/lib/reseller';
 import { prisma } from '@/lib/prisma';
-import { executeProviderOrder } from '@/lib/provider';
+import { orderTarget, positiveInt } from '@/lib/order-input';
+import { executeProviderOrder, DISPATCH_READY } from '@/lib/provider';
 import { debitGuard } from '@/lib/balance';
 
 export async function POST(req: Request) {
-  const user = await getApiUser(req);
+  const body = await getApiParams(req);
+  const user = await getApiUser(req, body);
   if (!user) return NextResponse.json({ status: false, message: 'Invalid API key' });
-
-  const body = await req.json();
-  const { service_id, target, custom_comments, username } = body;
-  const quantity = Number(body.quantity);
+  // Standard SMM API param names (`service`, `id`) accepted alongside ours
+  const { custom_comments, username } = body;
+  const target = orderTarget(body.target);
+  const service_id = positiveInt(body.service_id ?? body.service);
+  const quantity = positiveInt(body.quantity);
 
   if (!service_id || !target || !quantity) {
     return NextResponse.json({ status: false, message: 'Missing required fields: service_id, target, quantity' });
   }
-  if (!Number.isInteger(quantity) || quantity <= 0) {
+  if (!service_id || !target || !Number.isInteger(quantity) || quantity <= 0) {
     return NextResponse.json({ status: false, message: 'Invalid quantity' });
   }
 
@@ -45,8 +48,8 @@ export async function POST(req: Request) {
     return tx.order.create({
       data: {
         user_id: user.id, service_id: service.id, provider_id: service.provider_id,
-        service_name: service.name, target: String(target), quantity, price: totalPrice, profit: totalProfit,
-        status: 'PENDING', is_api: true,
+        service_name: service.name, target, quantity, price: totalPrice, profit: totalProfit,
+        status: 'PENDING', provider_order_log: DISPATCH_READY, is_api: true,
         ip_address: req.headers.get('x-real-ip') || '',
         custom_comments, username,
       },
@@ -55,11 +58,12 @@ export async function POST(req: Request) {
 
   if (service.provider.name !== 'MANUAL') {
     executeProviderOrder(service.provider, order, { service, target, quantity, custom_comments, username })
-      .catch((e: any) => prisma.order.update({ where: { id: order.id }, data: { status: 'ERROR', provider_order_log: e.message } }));
+      .catch(() => console.error(`Order #${order.id}: dispatch requires review`));
   }
 
   return NextResponse.json({
     status: true,
+    data: { id: order.id },
     order_id: order.id,
     service_name: service.name,
     price: totalPrice,
