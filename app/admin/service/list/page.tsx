@@ -5,7 +5,8 @@ import { ServiceListClient } from './client';
 export default async function ServiceListPage({ searchParams }: { searchParams: any }) {
   await requireAdmin();
   const page = getPage(searchParams);
-  const { search, filter_category, filter_provider, filter_status, filter_type, refill_support } = searchParams;
+  const { search, filter_category, filter_provider, filter_status, filter_type, refill_support, filter_row } = searchParams;
+  const per = [10, 30, 50, 100].includes(parseInt(filter_row)) ? parseInt(filter_row) : PER_PAGE;
 
   // Laravel parity: search = name/id contains; filters = category, provider, status, type, refill_support
   const where: any = {};
@@ -23,13 +24,13 @@ export default async function ServiceListPage({ searchParams }: { searchParams: 
     prisma.service.findMany({
       where,
       orderBy: { id: 'desc' },
-      skip: (page - 1) * PER_PAGE,
-      take: PER_PAGE,
+      skip: (page - 1) * per,
+      take: per,
       include: { category: { select: { name: true } }, provider: { select: { name: true } } },
     }),
     prisma.service.count({ where }),
     prisma.serviceCategory.findMany({ where: { status: true }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
     prisma.serviceProvider.findMany({ where: { status: true }, orderBy: { id: 'desc' }, select: { id: true, name: true } }),
   ]);
-  return <ServiceListClient services={services} total={total} page={page} filters={searchParams} categories={categories} providers={providers} />;
+  return <ServiceListClient services={services} total={total} page={page} per={per} filters={searchParams} categories={categories} providers={providers} />;
 }

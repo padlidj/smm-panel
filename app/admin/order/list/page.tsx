@@ -9,9 +9,11 @@ export default async function OrderListPage({ searchParams }: { searchParams: { 
   const username = getStr(searchParams, 'username');
   const from = getStr(searchParams, 'from');
   const to = getStr(searchParams, 'to');
+  const serviceId = parseInt(getStr(searchParams, 'service_id') || '0') || 0;
 
   const where: any = {};
   if (status) where.status = status;
+  if (serviceId) where.service_id = serviceId; // Laravel service/detail parity: order list per service
   if (username) where.user = { username: { contains: username } };
   if (from || to) where.created_at = {};
   if (from) where.created_at.gte = new Date(from);
@@ -21,5 +23,5 @@ export default async function OrderListPage({ searchParams }: { searchParams: { 
     prisma.order.findMany({ where, orderBy: { created_at: 'desc' }, skip: (page - 1) * PER_PAGE, take: PER_PAGE, include: { user: { select: { username: true } } } }),
     prisma.order.count({ where }),
   ]);
-  return <OrderListClient orders={orders} total={total} page={page} status={status} username={username} from={from} to={to} />;
+  return <OrderListClient orders={orders} total={total} page={page} status={status} username={username} from={from} to={to} service_id={serviceId || undefined} />;
 }

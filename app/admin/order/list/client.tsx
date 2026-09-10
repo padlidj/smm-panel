@@ -14,7 +14,7 @@ import { confirmDelete } from '@/lib/admin-client';
 
 const PER_PAGE = 20;
 
-export function OrderListClient({ orders, total, page, status, username, from, to }: any) {
+export function OrderListClient({ orders, total, page, status, username, from, to, service_id }: any) {
   const router = useRouter();
   const [st, setSt] = useState(status);
   const [un, setUn] = useState(username);
@@ -28,6 +28,7 @@ export function OrderListClient({ orders, total, page, status, username, from, t
     if (un) params.set('username', un);
     if (f) params.set('from', f);
     if (t) params.set('to', t);
+    if (service_id) params.set('service_id', String(service_id)); // preserve per-service drill-down
     router.push(`/admin/order/list?${params}`);
   };
 
@@ -90,7 +91,7 @@ export function OrderListClient({ orders, total, page, status, username, from, t
             </TableBody>
           </Table>
         </CardContent>
-        <Pagination page={page} totalPages={totalPages} onChange={p => router.push(`/admin/order/list?page=${p}${st ? `&status=${st}` : ''}${un ? `&username=${un}` : ''}${f ? `&from=${f}` : ''}${t ? `&to=${t}` : ''}`)} />
+        <Pagination page={page} totalPages={totalPages} onChange={p => router.push(`/admin/order/list?page=${p}${st ? `&status=${st}` : ''}${un ? `&username=${un}` : ''}${f ? `&from=${f}` : ''}${t ? `&to=${t}` : ''}${service_id ? `&service_id=${service_id}` : ''}`)} />
       </Card>
     </div>
   );

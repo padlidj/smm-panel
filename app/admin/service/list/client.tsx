@@ -12,7 +12,7 @@ import { postForm, confirmDelete } from '@/lib/admin-client';
 
 const PER_PAGE = 20;
 
-export function ServiceListClient({ services, total, page, filters, categories, providers }: any) {
+export function ServiceListClient({ services, total, page, per = PER_PAGE, filters, categories, providers }: any) {
   const router = useRouter();
 
   const qp = new URLSearchParams(Object.entries(filters || {}).filter(([k, v]) => k !== 'page' && v).map(([k, v]) => [k, String(v)])).toString();
@@ -26,7 +26,7 @@ export function ServiceListClient({ services, total, page, filters, categories, 
     router.refresh();
   };
 
-  const totalPages = Math.ceil(total / PER_PAGE);
+  const totalPages = Math.ceil(total / per);
 
   return (
     <div className="space-y-4">
@@ -56,6 +56,9 @@ export function ServiceListClient({ services, total, page, filters, categories, 
             </select>
             <select name="refill_support" defaultValue={filters?.refill_support || ''} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
               <option value="">Refill: All</option><option value="1">Refill</option><option value="0">No Refill</option>
+            </select>
+            <select name="filter_row" defaultValue={filters?.filter_row || ''} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+              <option value="">20/row</option>{[10, 30, 50, 100].map(n => <option key={n} value={n}>{n}/row</option>)}
             </select>
             <Button type="submit" size="sm">Filter</Button>
           </form>
@@ -92,6 +95,7 @@ export function ServiceListClient({ services, total, page, filters, categories, 
                   <TableCell><Badge variant={s.status ? 'success' : 'destructive'}>{s.status ? 'Active' : 'Inactive'}</Badge></TableCell>
                   <TableCell className="flex gap-2">
                     <Link href={`/admin/service/form/${s.id}`}><Button variant="secondary" size="sm">Edit</Button></Link>
+                    <Link href={`/admin/order/list?service_id=${s.id}`}><Button variant="secondary" size="sm">Orders</Button></Link>
                     <Button variant="secondary" size="sm" onClick={() => toggle(s)}>Toggle</Button>
                     <Button variant="destructive" size="sm" onClick={confirmDelete('/api/admin/service/delete', s.id)}>Hapus</Button>
                   </TableCell>

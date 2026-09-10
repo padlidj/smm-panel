@@ -18,6 +18,7 @@ const menuItems = [
     { href: '/admin/service/provider/list', label: 'Providers' },
     { href: '/admin/service/list', label: 'Services' },
     { href: '/admin/service/get', label: 'Ambil Service' },
+    { href: '/admin/service/bulk', label: 'Bulk Import' },
     { href: '/admin/service/log', label: 'Service Log' },
     { href: '/admin/service/custom-price/list', label: 'Custom Price' },
   ]},
