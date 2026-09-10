@@ -20,6 +20,11 @@ export function UserListClient({ users, total, page, search, status }: any) {
   const [st, setSt] = useState(status);
   const totalPages = Math.ceil(total / PER_PAGE);
 
+  const setStatus = async (id: number, next: string) => {
+    await fetch('/api/admin/user/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status: next }) });
+    router.refresh();
+  };
+
   const handleSearch = () => {
     const params = new URLSearchParams();
     if (s) params.set('search', s);
@@ -86,6 +91,8 @@ export function UserListClient({ users, total, page, search, status }: any) {
                     <Link href={`/admin/user/detail/${u.id}`}>
                       <Button variant="outline" size="sm" className="ml-1">Detail</Button>
                     </Link>
+                    {u.status !== 'ACTIVE' && <Button variant="secondary" size="sm" className="ml-1" onClick={() => setStatus(u.id, 'ACTIVE')}>Aktifkan</Button>}
+                    {u.status === 'ACTIVE' && <Button variant="outline" size="sm" className="ml-1" onClick={() => setStatus(u.id, 'BANNED')}>Ban</Button>}
                     <Button variant="destructive" size="sm" className="ml-1" onClick={confirmDelete('/api/admin/user/delete', u.id)}>Hapus</Button>
                   </TableCell>
                 </TableRow>
