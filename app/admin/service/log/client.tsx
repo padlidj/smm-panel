@@ -1,37 +1,32 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Pagination } from '@/components/ui/pagination';
-import { useState } from 'react';
 
-export function ServiceLogClient({ logs, total, page, totalPages, filterProvider, providers }: any) {
+export function ServiceLogClient({ logs, total, page, totalPages, filters }: any) {
   const router = useRouter();
-  const [sel, setSel] = useState(filterProvider ? String(filterProvider) : '');
-
-  const go = (p: number) => {
-    const q = new URLSearchParams();
-    if (sel) q.set('provider_id', sel);
-    if (p > 1) q.set('page', String(p));
-    router.push(`/admin/service/log?${q}`);
-  };
+  const qp = new URLSearchParams(Object.entries(filters || {}).filter(([k, v]) => k !== 'page' && v).map(([k, v]) => [k, String(v)])).toString();
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Service Log</h1>
       <Card>
-        <CardHeader><CardTitle className="text-lg">Filter Provider</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            <Select value={sel} onChange={e => setSel(e.target.value)} className="max-w-60">
-              <option value="">Semua Provider</option>
-              {providers.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </Select>
-            <Button variant="secondary" onClick={() => go(1)}>Filter</Button>
-          </div>
+        <CardContent className="p-3">
+          <form className="flex flex-wrap items-center gap-2" action="/admin/service/log" method="get">
+            <Input name="search" defaultValue={filters?.search || ''} placeholder="Cari ID / log / user / layanan / provider" className="h-10 w-64" />
+            <Input name="filter_user" defaultValue={filters?.filter_user || ''} placeholder="User" className="h-10 w-32" />
+            <Input name="filter_service" defaultValue={filters?.filter_service || ''} placeholder="Layanan" className="h-10 w-40" />
+            <Input name="filter_provider" defaultValue={filters?.filter_provider || ''} placeholder="Provider" className="h-10 w-40" />
+            <Input type="date" name="filter_start_date" defaultValue={filters?.filter_start_date || ''} className="h-10 w-40" />
+            <Input type="date" name="filter_end_date" defaultValue={filters?.filter_end_date || ''} className="h-10 w-40" />
+            <Button type="submit" size="sm">Filter</Button>
+            <Button type="button" size="sm" variant="secondary" onClick={() => router.push('/admin/service/log')}>Reset</Button>
+          </form>
         </CardContent>
       </Card>
       <Card>
@@ -51,18 +46,18 @@ export function ServiceLogClient({ logs, total, page, totalPages, filterProvider
               {logs.map((l: any) => (
                 <TableRow key={l.id}>
                   <TableCell>{l.id}</TableCell>
-                  <TableCell>{l.service.name}</TableCell>
-                  <TableCell>{l.provider.name}</TableCell>
+                  <TableCell>{l.service_id ? <Link className="underline" href={`/admin/order/list?service_id=${l.service_id}`}>{l.service?.name || '-'}</Link> : (l.service?.name || '-')}</TableCell>
+                  <TableCell>{l.provider?.name || '-'}</TableCell>
                   <TableCell>{l.user?.username || '-'}</TableCell>
-                  <TableCell className="max-w-xs truncate">{l.logs}</TableCell>
+                  <TableCell className="max-w-xs truncate" title={l.logs}>{l.logs}</TableCell>
                   <TableCell className="text-xs">{new Date(l.created_at).toLocaleString('id-ID')}</TableCell>
                 </TableRow>
               ))}
-              {logs.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Belum ada log</TableCell></TableRow>}
+              {!logs.length && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Tidak ada data</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
-        <Pagination page={page} totalPages={totalPages} onChange={go} />
+        <Pagination page={page} totalPages={totalPages} onChange={p => router.push(`/admin/service/log?page=${p}${qp ? '&' + qp : ''}`)} />
       </Card>
     </div>
   );
