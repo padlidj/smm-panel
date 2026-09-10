@@ -111,6 +111,7 @@ model User {
   service_favorites ServiceFavorite[]
   service_logs    ServiceLog[]
   login_logs      LoginLog[] @relation("UserLoginLogs")
+  register_logs   RegisterLog[]
 
   @@map("users")
 }
@@ -384,6 +385,20 @@ model LoginLog {
   user       User?          @relation("UserLoginLogs", fields: [user_id], references: [id])
 
   @@map("login_logs")
+}
+
+model RegisterLog {
+  id         Int      @id @default(autoincrement())
+  user_id    Int?
+  username   String
+  email      String
+  ip_address String
+  user_agent String?
+  created_at DateTime @default(now())
+
+  user       User?    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("register_logs")
 }
 
 model WebsiteConfig {

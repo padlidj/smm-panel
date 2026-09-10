@@ -7,21 +7,41 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdminBalanceReportPage({ searchParams }: { searchParams: { from?: string; to?: string } }) {
+export default async function AdminBalanceReportPage({ searchParams }: { searchParams: { from?: string; to?: string; search?: string; user?: string; type?: string; action?: string } }) {
   await requireAdmin();
 
   const from = searchParams.from ? new Date(searchParams.from + 'T00:00:00') : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const to = searchParams.to ? new Date(searchParams.to + 'T23:59:59') : new Date();
 
+  const where: any = { created_at: { gte: from, lte: to } };
+  if (searchParams.user) where.user = { username: { contains: searchParams.user } };
+  if (searchParams.type) where.type = searchParams.type;
+  if (searchParams.action) where.action = { contains: searchParams.action };
+  if (searchParams.search) {
+    const n = parseInt(searchParams.search, 10);
+    where.OR = [
+      ...(String(n) === searchParams.search.trim() ? [{ id: n }] : []),
+      { type: { contains: searchParams.search, mode: 'insensitive' } },
+      { action: { contains: searchParams.search, mode: 'insensitive' } },
+      { description: { contains: searchParams.search, mode: 'insensitive' } },
+      { user: { username: { contains: searchParams.search, mode: 'insensitive' } } },
+    ];
+  }
+
   const logs = await prisma.balanceLog.findMany({
-    where: { created_at: { gte: from, lte: to } },
+    where,
     orderBy: { created_at: 'desc' },
     take: 200,
     include: { user: { select: { username: true } } },
   });
 
-  const totalIn = logs.filter(l => l.type === 'PLUS').reduce((a, l) => a + Number(l.amount), 0);
-  const totalOut = logs.filter(l => l.type === 'MINUS').reduce((a, l) => a + Number(l.amount), 0);
+  // Laravel sums over the WHOLE filtered set, not the 200-row sample
+  const [plus, minus] = await Promise.all([
+    prisma.balanceLog.aggregate({ where: { ...where, type: 'PLUS' }, _sum: { amount: true } }),
+    prisma.balanceLog.aggregate({ where: { ...where, type: 'MINUS' }, _sum: { amount: true } }),
+  ]);
+  const totalIn = Number(plus._sum.amount || 0);
+  const totalOut = Number(minus._sum.amount || 0);
 
   return (
     <div className="space-y-6">
@@ -38,6 +58,26 @@ export default async function AdminBalanceReportPage({ searchParams }: { searchP
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">Sampai</label>
               <Input type="date" name="to" defaultValue={searchParams.to || new Date().toISOString().slice(0, 10)} className="w-44" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">User</label>
+              <Input name="user" placeholder="username" defaultValue={searchParams.user || ''} className="w-36" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Tipe</label>
+              <select name="type" defaultValue={searchParams.type || ''} className="h-9 rounded-md border bg-transparent px-2 text-sm">
+                <option value="">All</option>
+                <option value="PLUS">Plus</option>
+                <option value="MINUS">Minus</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Aksi</label>
+              <Input name="action" placeholder="e.g. ORDER" defaultValue={searchParams.action || ''} className="w-36" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Search</label>
+              <Input name="search" placeholder="ID/desc/amount" defaultValue={searchParams.search || ''} className="w-44" />
             </div>
             <Button type="submit">Terapkan</Button>
           </form>

@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     const needVerify = !!cfg.is_email_verification_enabled && !!process.env.SMTP_USER;
     const activateToken = needVerify ? randomBytes(32).toString('hex') : null;
 
-    await prisma.user.create({
+    const created = await prisma.user.create({
       data: {
         username,
         email,
@@ -64,6 +64,8 @@ export async function POST(req: Request) {
         activate_token: activateToken,
       },
     });
+
+    await prisma.registerLog.create({ data: { user_id: created.id, username, email, ip_address: ip, user_agent: req.headers.get('user-agent')?.slice(0, 255) || null } }).catch(() => {});
 
     if (needVerify) {
       const url = `${process.env.NEXTAUTH_URL || 'https://kuygas.my.id'}/auth/activate/${activateToken}`;
