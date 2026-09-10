@@ -115,5 +115,57 @@ async function bodyOf(fn, args) {
   assert.equal(b.action, 'add');
   assert.ok('provider_key' in b || 'key' in b, 'default auth field present');
 
+  // 11. service sync: mapping paths, price/profit settings, categories, idempotent, disable vanished
+  {
+    const services = [{ sid: '7', service: 'Followers IG', cat: 'Instagram', rate: 10000, min: '10', max: '100', type: 'Default', refill: true, desc: null }];
+    const rows = []; const cats = new Map(); const log = [];
+    const syncDb = {
+      serviceCategory: {
+        findFirst: async ({ where }) => ({ id: cats.get(where.name) ?? (cats.set(where.name, cats.size + 1), cats.get(where.name)), name: where.name }),
+        create: async ({ data }) => { cats.set(data.name, cats.size + 1); return { id: cats.get(data.name) }; },
+      },
+      service: {
+        findFirst: async ({ where }) => rows.find(r => r.provider_id === where.provider_id && r.provider_service_id === where.provider_service_id),
+        findMany: async () => rows.filter(r => r.status && !services.some(s => s.sid === r.provider_service_id)),
+        create: async ({ data }) => { rows.push({ ...data, id: rows.length + 1 }); log.push('create'); return data; },
+        update: async ({ where, data }) => { Object.assign(rows.find(r => r.id === where.id), data); log.push('update'); },
+        updateMany: async () => ({ count: 1 }),
+      },
+    };
+    const syncApi = load('lib/provider.ts', { './prisma': { prisma: syncDb }, fetch: async (url) =>
+      url.includes('er-api') ? { ok: true, json: async () => ({ rates: { IDR: 15000 } }) } : { ok: true, json: async () => ({ data: { list: services } }) } });
+    const cfgProvider = { id: 1, name: 'X', provider_id: 'P', provider_key: 'K', currency: 'IDR', service_config: {
+      endpoint: 'http://mock/', request: { action: 'services', key: 'provider_key' }, looping: "['data']['list']",
+      response: { id: "['sid']", name: "['service']", category: "['cat']", price: "['rate']", min: "['min']", max: "['max']", type: "['type']", refill: "['refill']", description: "['desc']" },
+      price_setting: { operator: '*', value: '1.1' }, profit_setting: { operator: '%', value: '20' },
+      other_value: { is_refill_support: 'true' }, settings: { name: '1', price_profit: '1', min_max: '0' } } };
+
+    const rep1 = await syncApi.syncProviderServices(cfgProvider);
+    assert.equal(JSON.stringify(rep1), JSON.stringify({ added: 1, updated: 0, disabled: 0, details: ['+ 7 Followers IG'] }), 'first sync adds');
+    const svc = rows[0];
+    // ceil(10000*1.1)=11000 base; profit=ceil(11000*.2)=2200; price=13200
+    assert.equal(svc.price, 13200); assert.equal(svc.profit, 2200);
+    assert.equal(svc.category_id, 1); assert.equal(svc.refill_provider_service_id, '7'); assert.equal(svc.description, '-');
+    const rep2 = await syncApi.syncProviderServices(cfgProvider);
+    assert.equal(rep2.updated, 0); assert.equal(rep2.added, 0); assert.equal(rep2.disabled, 0);
+    // flag off min_max: change provider min -> must NOT update min
+    services[0].min = '50';
+    const rep3 = await syncApi.syncProviderServices(cfgProvider);
+    assert.equal(rep3.updated, 0, 'min_max flag off blocks min-only change');
+    // vanish -> disable (non-empty list; empty list must never mass-disable)
+    const services2 = [services[0], { sid: '8', service: 'Likes', cat: 'Instagram', rate: 100, min: 1, max: 2, type: 'Default', refill: false, desc: '' }];
+    services.length = 0; services.push(...services2);
+    await syncApi.syncProviderServices(cfgProvider); // + sid 8
+    services.splice(1, 1); // sid 8 gone from provider
+    const rep4 = await syncApi.syncProviderServices(cfgProvider);
+    assert.equal(rep4.disabled, 1);
+    // empty provider list -> nothing touched
+    services.length = 0;
+    const rep5 = await syncApi.syncProviderServices(cfgProvider);
+    assert.equal(rep5.disabled, 0, 'empty list must not mass-disable');
+    // selective import never mass-disables
+    assert.equal((await syncApi.syncServiceRows(cfgProvider, [], { disableMissing: false })).disabled, 0);
+  }
+
   console.log('PASS provider-mapping');
 })().catch(e => { console.error(e); process.exitCode = 1; });

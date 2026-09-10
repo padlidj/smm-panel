@@ -370,10 +370,55 @@ export async function checkRefillStatus(provider: any, refill: any) {
   } catch { return null; }
 }
 
-export async function syncProviderServices(provider: any) {
+// service_config schema (mapping-driven, parity with Laravel panel):
+// { endpoint, method?, headers?, content_type?, request: {adminField: outField},
+//   looping: 'data', response: {id,name,category,price,min,max,type,refill,description} field paths,
+//   currency: 'IDR'|'USD', price_setting:{operator:'*|/|+|-',value}, profit_setting:{operator:'*|+|-|%',value},
+//   other_value:{custom_comments,comment_likes,is_refill_support},
+//   settings: {name,min_max,price_profit,profit,description,custom_comments,refill_support,status} update flags }
+export type SyncReport = { added: number; updated: number; disabled: number; details: string[] };
+
+// price = price_setting(providerPrice); profit = profit_setting(price); final price = price + profit.
+function applySetting(value: number, setting: any): number {
+  if (!setting || !setting.operator) return value;
+  const v = Number(setting.value);
+  if (!Number.isFinite(v)) return value;
+  switch (setting.operator) {
+    case '*': return Math.ceil(value * v);
+    case '/': return v !== 0 ? Math.ceil(value / v) : value;
+    case '+': return Math.ceil(value + v);
+    case '-': return Math.ceil(value - v);
+    case '%': return Math.ceil(value * (v / 100));
+    default: return value;
+  }
+}
+
+const usdRateCache = { rate: 0, at: 0 };
+// ponytail: 1h cache, refresh-per-process if FX matters more
+async function usdToIdrRate(): Promise<number> {
+  if (usdRateCache.rate && Date.now() - usdRateCache.at < 3600_000) return usdRateCache.rate;
+  const res = await fetch('https://open.er-api.com/v6/latest/USD');
+  const data = await res.json();
+  const rate = Number(data?.rates?.IDR);
+  if (!rate) throw new Error('FX rate unavailable');
+  usdRateCache.rate = rate; usdRateCache.at = Date.now();
+  return rate;
+}
+
+async function categoryByName(name: string, cache: Map<string, number>): Promise<number> {
+  const key = name.trim() || 'Provider';
+  if (cache.has(key)) return cache.get(key)!;
+  let cat = await prisma.serviceCategory.findFirst({ where: { name: key } });
+  if (!cat) cat = await prisma.serviceCategory.create({ data: { name: key } });
+  cache.set(key, cat.id);
+  return cat.id;
+}
+
+// Fetch raw provider service list payload (service_config driven). Returns parsed JSON or null.
+export async function fetchProviderServices(provider: any): Promise<any | null> {
   try {
     const config = provider.service_config || {};
-    const endpoint = config.endpoint || provider.endpoint?.services;
+    const endpoint = config.endpoint || provider.endpoint?.services || provider.endpoint?.service;
     if (!endpoint) return null;
 
     const mapping = config.request || config.body || { action: 'services', key: 'provider_key' };
@@ -397,63 +442,125 @@ export async function syncProviderServices(provider: any) {
 
     const headers = { 'Content-Type': contentType, ...buildHeaders(config.headers || {}, values, isTemplate) };
 
-    const res = await fetch(endpoint, { method: 'POST', headers, body: reqBody });
+    const res = await fetch(endpoint, { method: config.method || 'POST', headers, body: reqBody });
     const data = await res.json();
-    if (!res.ok) return null;
-
-    const resp = config.response || {};
-    const listPath = resp.list || 'data';
-    const list = Array.isArray(get(data, listPath)) ? get(data, listPath) : null;
-    if (!list) return null;
-
-    const f = resp.fields || {};
-    const getField = (item: any, key: string, fallback: string) => {
-      const p = f[key] || fallback;
-      return get(item, p);
-    };
-
-    let category = await prisma.serviceCategory.findFirst({ where: { name: resp.category_name || 'Provider' } });
-    if (!category) {
-      category = await prisma.serviceCategory.create({ data: { name: resp.category_name || 'Provider' } });
-    }
-
-    let count = 0;
-    for (const item of list) {
-      const name = String(getField(item, 'name', 'name') ?? '');
-      const providerServiceId = String(getField(item, 'id', 'id') ?? '');
-      const price = Number(getField(item, 'price', 'price') ?? 0);
-      if (!name || !price) continue;
-
-      const min = Number(getField(item, 'min', 'min') ?? 0) || 0;
-      const max = Number(getField(item, 'max', 'max') ?? 0) || 0;
-      const type = String(getField(item, 'type', 'type') ?? 'DEFAULT').toUpperCase();
-      const typeValid = ['DEFAULT', 'COMMENT_LIKES', 'CUSTOM_COMMENTS', 'SUBSCRIPTIONS'].includes(type) ? type : 'DEFAULT';
-
-      const existing = await prisma.service.findFirst({
-        where: { provider_id: provider.id, provider_service_id: providerServiceId },
-      });
-      const serviceData = {
-        name,
-        provider_service_id: providerServiceId,
-        price,
-        profit: price,
-        min,
-        max,
-        type: typeValid as any,
-        status: true,
-      };
-      if (existing) {
-        await prisma.service.update({ where: { id: existing.id }, data: serviceData });
-      } else {
-        await prisma.service.create({ data: { category_id: category.id, provider_id: provider.id, ...serviceData } });
-      }
-      count++;
-    }
-
-    return { count, category: category.name };
+    return res.ok ? data : null;
   } catch {
     return null;
   }
+}
+
+// Pull services from provider and upsert. Honors response mapping, price/profit settings,
+// per-item category, USD conversion, other_value type/refill detection, update flags,
+// disables vanished provider services. Idempotent: unchanged rows are not touched.
+export async function syncProviderServices(provider: any): Promise<SyncReport | null> {
+  const data = await fetchProviderServices(provider);
+  if (!data) return null;
+  const rows = await computeServiceRows(provider, data);
+  if (!rows) return null;
+  return await syncServiceRows(provider, rows);
+}
+
+// Laravel-style paths: "['data']['list']" or "[data]" or "data.sub" → lodash.get path
+function toPath(p: unknown): string {
+  if (typeof p !== 'string') return '';
+  return p.replace(/\]\[\x27/g, '.').replace(/^\[\x27/, '').replace(/\x27\]$/, '').replace(/^\[(.+)\]$/, '$1').replace(/['"]/g, '');
+}
+
+// Pure computation pass: raw provider payload -> normalized rows (no DB writes).
+// Shared by sync (persist) and admin import preview (shows final price/category before commit).
+export async function computeServiceRows(provider: any, data: any) {
+  const config = provider.service_config || {};
+  const resp = config.response || {};
+  const looping = toPath(config.looping) || toPath(resp.list) || 'data';
+  const rawList = get(data, looping);
+  if (!Array.isArray(rawList)) return null;
+
+  const path = (key: string) => toPath(resp[key]) || key;
+  const field = (item: any, key: string) => get(item, path(key));
+  const usd = String(config.currency || provider.currency || 'IDR').toUpperCase() === 'USD';
+  const fx = usd ? await usdToIdrRate() : 1;
+  const ov = config.other_value || {};
+
+  const rows = [];
+  for (const item of rawList) {
+    const pid = String(field(item, 'id') ?? '').trim();
+    const name = String(field(item, 'name') ?? '').replace(' ??', '').trim();
+    if (!pid || !name) continue;
+    const basePrice = applySetting(Math.ceil(Number(field(item, 'price') ?? 0) * fx), config.price_setting);
+    const profit = applySetting(basePrice, config.profit_setting);
+    const rawType = String(field(item, 'type') ?? '');
+    let type = 'DEFAULT';
+    if (ov.custom_comments && rawType === String(ov.custom_comments)) type = 'CUSTOM_COMMENTS';
+    else if (ov.comment_likes && rawType === String(ov.comment_likes)) type = 'COMMENT_LIKES';
+    else if (['COMMENT_LIKES', 'CUSTOM_COMMENTS', 'SUBSCRIPTIONS'].includes(rawType.toUpperCase())) type = rawType.toUpperCase();
+    const refillValue = field(item, 'refill');
+    const refillId = ['', 'false', '0'].includes(String(refillValue ?? ''))
+      ? null : (String(refillValue) === 'true' ? pid : String(refillValue));
+    rows.push({
+      name,
+      provider_service_id: pid,
+      price: basePrice + profit, profit,
+      min: Number(field(item, 'min') ?? 0) || 0,
+      max: Number(field(item, 'max') ?? 0) || 0,
+      description: String(field(item, 'description') ?? '') || '-',
+      type,
+      category_name: String(field(item, 'category') ?? '').trim() || 'Provider',
+      refill_provider_service_id: String(ov.is_refill_support) === 'true' ? refillId : null,
+    });
+  }
+  return rows;
+}
+
+// Persist computed rows: per-item category find-or-create, idempotent upsert (only flagged
+// fields, only real changes), disable vanished. PITFALL parity: string-cast seen ids,
+// manual services (null provider_service_id) excluded from disable.
+export async function syncServiceRows(provider: any, rows: Awaited<ReturnType<typeof computeServiceRows>>, options?: { disableMissing?: boolean }) {
+  const config = provider.service_config || {};
+  const flags = config.settings || {};
+  const flagOn = (k: string) => flags[k] === undefined || String(flags[k]) === '1' || flags[k] === true;
+  const catCache = new Map<string, number>();
+  const report: SyncReport = { added: 0, updated: 0, disabled: 0, details: [] };
+  const seen = new Set<string>();
+
+  for (const row of rows || []) {
+    seen.add(row.provider_service_id);
+    const category = await categoryByName(row.category_name, catCache);
+    const existing = await prisma.service.findFirst({ where: { provider_id: provider.id, provider_service_id: row.provider_service_id } });
+    if (!existing) {
+      await prisma.service.create({ data: { provider_id: provider.id, category_id: category, ...row, category_name: undefined, status: true } as any });
+      report.added++;
+      report.details.push(`+ ${row.provider_service_id} ${row.name}`);
+      continue;
+    }
+    const patch: any = {};
+    if (flagOn('name') && existing.name !== row.name) patch.name = row.name;
+    if (flagOn('min_max') && (existing.min !== row.min || existing.max !== row.max)) { patch.min = row.min; patch.max = row.max; }
+    if (flagOn('price_profit') && (existing.price !== row.price || existing.profit !== row.profit)) { patch.price = row.price; patch.profit = row.profit; }
+    if (flagOn('description') && existing.description !== row.description) patch.description = row.description;
+    if (flagOn('custom_comments') && existing.type !== row.type) patch.type = row.type as any;
+    if (flagOn('refill_support') && existing.refill_provider_service_id !== row.refill_provider_service_id) patch.refill_provider_service_id = row.refill_provider_service_id;
+    if (flagOn('category') && existing.category_id !== category) patch.category_id = category;
+    if (flagOn('status') && !existing.status) patch.status = true;
+    if (Object.keys(patch).length) {
+      await prisma.service.update({ where: { id: existing.id }, data: patch });
+      report.updated++;
+      if (report.details.length < 500) report.details.push(`~ ${row.provider_service_id} ${row.name}`);
+    }
+  }
+
+  // Disable vanished only on FULL lists — selective import must never mass-disable siblings.
+  if (options?.disableMissing !== false && seen.size > 0) {
+    const vanished = await prisma.service.findMany({
+      where: { provider_id: provider.id, status: true, provider_service_id: { not: null, notIn: [...seen] } },
+      select: { id: true },
+    });
+    if (vanished.length) {
+      await prisma.service.updateMany({ where: { id: { in: vanished.map((s) => s.id) } }, data: { status: false } });
+      report.disabled = vanished.length;
+    }
+  }
+  return report;
 }
 
 export async function checkBalance(provider: any) {

@@ -10,6 +10,16 @@ import { postForm } from '@/lib/admin-client';
 
 const CONFIG_FIELDS = ['profile_config', 'order_config', 'status_config', 'service_config', 'refill_config', 'refill_status_config'] as const;
 
+// Preset: standar panel SMM v2 (api/admin.php) — parity is_default_settings Laravel.
+const V2_PRESET = {
+  profile_config: JSON.stringify({ endpoint: '', request: { action: 'balance', key: 'provider_key' }, response: { balance: 'balance', currency: 'currency' } }, null, 2),
+  order_config: JSON.stringify({ endpoint: '', request: { action: 'add', key: 'provider_key', service: 'service_id', quantity: 'quantity', target: 'target' }, response: { order: { order_id: 'order' } } }, null, 2),
+  status_config: JSON.stringify({ endpoint: '', request: { action: 'status', key: 'provider_key', order_id: 'order_id' }, response: { status: 'status', start_count: 'start_count', remains: 'remains' }, status_value: { COMPLETED: ['Completed', 'COMPLETE', 'Finish', 'Selesai'], CANCELED: ['Canceled', 'Cancel', 'Refunded'] } }, null, 2),
+  service_config: JSON.stringify({ endpoint: '', request: { action: 'services', key: 'provider_key' }, looping: 'data', response: { id: 'id', name: 'name', category: 'category', price: 'price', min: 'min', max: 'max', type: 'type', refill: 'refill', description: 'description' }, currency: 'IDR', price_setting: { operator: '*', value: '1' }, profit_setting: { operator: '%', value: '20' }, other_value: { custom_comments: '', comment_likes: '', is_refill_support: 'true' }, settings: { name: '1', min_max: '1', price_profit: '1', description: '1', custom_comments: '1', refill_support: '1', category: '1', status: '1' } }, null, 2),
+  refill_config: JSON.stringify({ endpoint: '', request: { action: 'refill', key: 'provider_key', service: 'refill_service_id', order_id: 'order_id' }, response: { refill: { refill_id: 'refill' } } }, null, 2),
+  refill_status_config: JSON.stringify({ endpoint: '', request: { action: 'refill_status', key: 'provider_key', id: 'refill_id' }, response: { status: 'status', start_count: 'start_count', remains: 'remains' }, status_value: { COMPLETED: ['Completed', 'Selesai'], CANCELED: ['Canceled', 'Refunded'] } }, null, 2),
+};
+
 export function ProviderFormClient({ provider }: any) {
   const router = useRouter();
   const [form, setForm] = useState<any>({
@@ -83,6 +93,10 @@ export function ProviderFormClient({ provider }: any) {
             <div className="flex items-center gap-2">
               <input type="checkbox" checked={form.is_refill_support} onChange={e => set('is_refill_support', e.target.checked)} />
               <label className="text-sm">Support Refill</label>
+              <Button type="button" variant="secondary" size="sm" className="ml-auto"
+                onClick={() => { if (confirm('Timpa semua config dengan preset standar panel v2?')) CONFIG_FIELDS.forEach(f => set(f, V2_PRESET[f])); }}>
+                Preset v2
+              </Button>
             </div>
             {CONFIG_FIELDS.map(field => (
               <div key={field} className="space-y-2">
@@ -91,7 +105,7 @@ export function ProviderFormClient({ provider }: any) {
                   className="flex w-full min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
                   value={form[field]}
                   onChange={e => set(field, e.target.value)}
-                  placeholder="{}"
+                  placeholder='{"endpoint":"https://.../api/v2","request":{"action":"services","key":"provider_key"},"looping":"data","response":{"id":"id","name":"name","category":"category","price":"price","min":"min","max":"max"},"price_setting":{"operator":"*","value":"1"},"profit_setting":{"operator":"%","value":"20"},"settings":{"name":"1","price_profit":"1"}}'
                 />
               </div>
             ))}

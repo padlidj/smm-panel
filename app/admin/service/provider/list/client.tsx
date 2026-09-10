@@ -69,7 +69,7 @@ export function ProviderListClient({ providers }: any) {
                     <Button variant="secondary" size="sm" onClick={async () => {
                       const res = await fetch(`/api/admin/provider/sync/${p.id}`, { method: 'POST' });
                       const json = await res.json();
-                      setBalance(prev => ({ ...prev, [p.id]: res.ok ? `Synced ${json.count} services` : json.error }));
+                      setBalance(prev => ({ ...prev, [p.id]: res.ok ? `Sync +${json.added} ~${json.updated} -${json.disabled}` : json.error }));
                     }}>Sync</Button>
                     <Button variant="destructive" size="sm" onClick={confirmDelete('/api/admin/provider/delete', p.id)}>Hapus</Button>
                   </TableCell>

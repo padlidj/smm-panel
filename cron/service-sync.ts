@@ -14,7 +14,7 @@ async function main() {
   for (const provider of providers) {
     const result = await syncProviderServices(provider);
     if (result) {
-      console.log(`Sinkronisasi ${provider.name}: ${result.count} layanan (${result.category})`);
+      console.log(`Sinkronisasi ${provider.name}: +${result.added} baru, ~${result.updated} update, -${result.disabled} nonaktif`);
     } else {
       console.log(`Gagal sinkronisasi ${provider.name}`);
     }
