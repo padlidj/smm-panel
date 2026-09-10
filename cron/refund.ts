@@ -26,10 +26,12 @@ async function processBatch(batchSize: number = 500): Promise<number> {
 
     for (const order of orders) {
       try {
+        // Laravel refund() parity: per-unit of remains, except remains=0 (ERROR: full; PARTIAL: nothing delivered-partial -> 0) or remains>=qty.
         let amountRefund = Number(order.price);
-        if (order.status === 'PARTIAL') {
-          if (order.remains === 0) amountRefund = 0;
-          else if (order.remains > 0 && order.remains <= order.quantity) amountRefund = Math.ceil((Number(order.price) / order.quantity) * order.remains);
+        if (order.remains > 0 && order.remains < order.quantity) {
+          amountRefund = Math.ceil((Number(order.price) / order.quantity) * order.remains);
+        } else if (order.remains === 0 && order.status === 'PARTIAL') {
+          amountRefund = 0;
         }
 
         let balanceAfter = 0;
