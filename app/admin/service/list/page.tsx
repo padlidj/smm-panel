@@ -2,17 +2,34 @@ import { prisma } from '@/lib/prisma';
 import { requireAdmin, PER_PAGE, getPage } from '@/lib/admin';
 import { ServiceListClient } from './client';
 
-export default async function ServiceListPage({ searchParams }: { searchParams: { page?: string } }) {
+export default async function ServiceListPage({ searchParams }: { searchParams: any }) {
   await requireAdmin();
   const page = getPage(searchParams);
-  const [services, total] = await Promise.all([
+  const { search, filter_category, filter_provider, filter_status, filter_type, refill_support } = searchParams;
+
+  // Laravel parity: search = name/id contains; filters = category, provider, status, type, refill_support
+  const where: any = {};
+  if (search) where.OR = [
+    { name: { contains: search, mode: 'insensitive' } },
+    Number(search) ? { id: Number(search) } : undefined,
+  ].filter(Boolean);
+  if (filter_category) where.category_id = parseInt(filter_category);
+  if (filter_provider) where.provider_id = parseInt(filter_provider);
+  if (filter_status === '1' || filter_status === '0') where.status = filter_status === '1';
+  if (filter_type) where.type = filter_type;
+  if (refill_support === '1' || refill_support === '0') where.is_refill_support = refill_support === '1';
+
+  const [services, total, categories, providers] = await Promise.all([
     prisma.service.findMany({
+      where,
       orderBy: { id: 'desc' },
       skip: (page - 1) * PER_PAGE,
       take: PER_PAGE,
       include: { category: { select: { name: true } }, provider: { select: { name: true } } },
     }),
-    prisma.service.count(),
+    prisma.service.count({ where }),
+    prisma.serviceCategory.findMany({ where: { status: true }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
+    prisma.serviceProvider.findMany({ where: { status: true }, orderBy: { id: 'desc' }, select: { id: true, name: true } }),
   ]);
-  return <ServiceListClient services={services} total={total} page={page} />;
+  return <ServiceListClient services={services} total={total} page={page} filters={searchParams} categories={categories} providers={providers} />;
 }

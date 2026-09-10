@@ -5,14 +5,17 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination } from '@/components/ui/pagination';
 import { postForm, confirmDelete } from '@/lib/admin-client';
 
 const PER_PAGE = 20;
 
-export function ServiceListClient({ services, total, page }: any) {
+export function ServiceListClient({ services, total, page, filters, categories, providers }: any) {
   const router = useRouter();
+
+  const qp = new URLSearchParams(Object.entries(filters || {}).filter(([k, v]) => k !== 'page' && v).map(([k, v]) => [k, String(v)])).toString();
 
   const toggle = async (s: any) => {
     await postForm('/api/admin/service', {
@@ -31,6 +34,33 @@ export function ServiceListClient({ services, total, page }: any) {
         <h1 className="text-2xl font-bold">Services</h1>
         <Link href="/admin/service/form/0"><Button>New Service</Button></Link>
       </div>
+      <Card>
+        {/* Laravel filter.blade parity: search, category, provider, status, type, refill_support */}
+        <CardContent className="p-3">
+          <form className="flex flex-wrap items-center gap-2" action="/admin/service/list" method="get">
+            <Input name="search" defaultValue={filters?.search || ''} placeholder="Search name or ID..." className="w-48" />
+            <select name="filter_category" defaultValue={filters?.filter_category || ''} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+              <option value="">All Categories</option>
+              {categories?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <select name="filter_provider" defaultValue={filters?.filter_provider || ''} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+              <option value="">All Providers</option>
+              {providers?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <select name="filter_status" defaultValue={filters?.filter_status || ''} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+              <option value="">All Status</option><option value="1">Active</option><option value="0">Inactive</option>
+            </select>
+            <select name="filter_type" defaultValue={filters?.filter_type || ''} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+              <option value="">All Types</option>
+              {['DEFAULT', 'COMMENT_LIKES', 'CUSTOM_COMMENTS', 'SUBSCRIPTIONS'].map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <select name="refill_support" defaultValue={filters?.refill_support || ''} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+              <option value="">Refill: All</option><option value="1">Refill</option><option value="0">No Refill</option>
+            </select>
+            <Button type="submit" size="sm">Filter</Button>
+          </form>
+        </CardContent>
+      </Card>
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -71,7 +101,7 @@ export function ServiceListClient({ services, total, page }: any) {
             </TableBody>
           </Table>
         </CardContent>
-        <Pagination page={page} totalPages={totalPages} onChange={p => router.push(`/admin/service/list?page=${p}`)} />
+        <Pagination page={page} totalPages={totalPages} onChange={p => router.push(`/admin/service/list?page=${p}${qp ? '&' + qp : ''}`)} />
       </Card>
     </div>
   );
