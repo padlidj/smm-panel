@@ -14,10 +14,11 @@ import { confirmDelete } from '@/lib/admin-client';
 
 const PER_PAGE = 20;
 
-export function UserListClient({ users, total, page, search, status }: any) {
+export function UserListClient({ users, total, page, search, status, role }: any) {
   const router = useRouter();
   const [s, setS] = useState(search);
   const [st, setSt] = useState(status);
+  const [rl, setRl] = useState(role || '');
   const totalPages = Math.ceil(total / PER_PAGE);
 
   const setStatus = async (id: number, next: string) => {
@@ -29,6 +30,7 @@ export function UserListClient({ users, total, page, search, status }: any) {
     const params = new URLSearchParams();
     if (s) params.set('search', s);
     if (st) params.set('status', st);
+    if (rl) params.set('role', rl);
     router.push(`/admin/user/list?${params}`);
   };
 
@@ -41,6 +43,7 @@ export function UserListClient({ users, total, page, search, status }: any) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Users</h1>
+        <Link href="/admin/user/form/new"><Button size="sm">Tambah User</Button></Link>
       </div>
       <Card>
         <CardHeader>
@@ -54,6 +57,11 @@ export function UserListClient({ users, total, page, search, status }: any) {
               <option value="ACTIVE">Active</option>
               <option value="BANNED">Banned</option>
               <option value="UNVERIFIED">Unverified</option>
+            </Select>
+            <Select value={rl} onChange={e => setRl(e.target.value)} className="max-w-40">
+              <option value="">All Role</option>
+              <option value="USER">User</option>
+              <option value="ADMIN">Admin</option>
             </Select>
             <Button onClick={handleSearch}>Search</Button>
           </div>
@@ -103,7 +111,7 @@ export function UserListClient({ users, total, page, search, status }: any) {
             </TableBody>
           </Table>
         </CardContent>
-        <Pagination page={page} totalPages={totalPages} onChange={p => router.push(`/admin/user/list?page=${p}${search ? `&search=${search}` : ''}${status ? `&status=${status}` : ''}`)} />
+        <Pagination page={page} totalPages={totalPages} onChange={p => router.push(`/admin/user/list?page=${p}${search ? `&search=${search}` : ''}${status ? `&status=${status}` : ''}${rl ? `&role=${rl}` : ''}`)} />
       </Card>
     </div>
   );

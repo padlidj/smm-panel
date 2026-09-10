@@ -19,7 +19,7 @@ function load(file, mocks = {}, cache = {}) {
       const target = name.startsWith('@/') ? path.join(root, name.slice(2)) : path.resolve(path.dirname(full), name);
       return load(path.relative(root, target) + '.ts', mocks, cache);
     }
-    if (['lodash.get', 'next/server', 'next-auth/providers/credentials', 'bcryptjs'].includes(name)) return require(name);
+    if (['lodash.get', 'next/server', 'next-auth/providers/credentials', 'bcryptjs', 'crypto'].includes(name)) return require(name);
     throw Error('Unmocked import: ' + name);
   };
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText;
@@ -267,6 +267,26 @@ tests.reseller = async () => {
   assert.equal(response.status, 403, 'invalid body key must stay rejected');
 };
 tests.admin = async () => {
+  // create branch: duplicate guard + api_key/auto-status + password hashing (Laravel parity)
+  {
+    let created = null;
+    const dbCreate = {
+      user: {
+        findFirst: async () => null,
+        create: async ({ data }) => { created = data; return { id: 77, ...data }; },
+      },
+    };
+    const { POST: createPost } = load('app/api/admin/user/route.ts', { ...dbMocks(dbCreate), '@/lib/auth': {}, 'next-auth': { getServerSession: async () => ({ user: { id: '9', role: 'admin' } }) } });
+    const sendCreate = body => createPost(new Request('http://test/api/admin/user', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
+    let r = await sendCreate({ username: 'budi', email: 'budi@x.id', password: 'rahasia123' });
+    assert.equal(r.status, 200, 'valid create must succeed');
+    assert.equal(created.username, 'budi');
+    assert.equal(created.status, 'ACTIVE', 'create defaults ACTIVE (Laravel is_verified=1)');
+    assert.match(created.api_key, /^[0-9a-f]{48}$/, 'create must mint api_key');
+    assert.match(created.password, /^\$2[aby]\$/, 'password must be bcrypt-hashed');
+    r = await sendCreate({ username: 'budi', email: 'budi@x.id', password: '123' });
+    assert.equal(r.status, 400, 'short password rejected');
+  }
   let transactions = 0, events = [], logs = [], storedBalance = 25;
   const tx = {
     $queryRaw: async (sql, id) => { assert.match(sql.join('?'), /SELECT balance FROM users WHERE id = \? FOR UPDATE/); events.push('lock'); return [{ balance: storedBalance }]; },

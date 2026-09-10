@@ -1,15 +1,15 @@
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
+import { requireAdmin } from '@/lib/admin';
 import { redirect } from 'next/navigation';
-import { authOptions } from '@/lib/auth';
 import { UserFormClient } from './client';
 
+// Laravel user/form/{id?} parity: 'new' = create.
 export default async function UserFormPage({ params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any)?.role !== 'admin') redirect('/auth/login');
-
+  await requireAdmin();
+  if (params.id === 'new') return <UserFormClient user={null} />;
   const user = await prisma.user.findUnique({ where: { id: parseInt(params.id) } });
   if (!user) redirect('/admin/user/list');
-
-  return <UserFormClient user={user} />;
+  const plain = JSON.parse(JSON.stringify({ ...user, balance: Number(user.balance) }));
+  delete plain.password;
+  return <UserFormClient user={plain} />;
 }
