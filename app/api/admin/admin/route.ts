@@ -11,8 +11,10 @@ export async function POST(req: Request) {
 
   try {
     const { id, username, email, password, level, status } = await req.json();
+    if (!username?.trim() || username.length > 20 || !email?.includes('@')) return NextResponse.json({ error: 'Username (maks 20) dan email valid wajib diisi' }, { status: 400 });
+    if (level && !['ADMIN', 'SUPERADMIN'].includes(level)) return NextResponse.json({ error: 'Level tidak valid' }, { status: 400 });
     const bcrypt = (await import('bcryptjs')).default;
-    const data: any = { username, email, level, status };
+    const data: any = { username: String(username).trim(), email: String(email).trim(), level, status };
     if (password) data.password = await bcrypt.hash(password, 10);
     if (id) {
       if (Number(me.id) === parseInt(id)) {
@@ -27,6 +29,7 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ message: 'Admin saved' });
   } catch (e: any) {
+    if (e?.code === 'P2002') return NextResponse.json({ error: 'Username/email sudah dipakai admin lain' }, { status: 400 });
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
