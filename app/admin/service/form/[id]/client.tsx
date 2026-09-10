@@ -24,6 +24,9 @@ export function ServiceFormClient({ service, categories, providers }: any) {
     status: service?.status ?? true,
     provider_service_id: service?.provider_service_id || '',
     refill_provider_service_id: service?.refill_provider_service_id || '',
+    is_refill_support: service?.is_refill_support ?? false,
+    update_service: service?.settings ? String(service.settings.update_service) === '1' : true,
+    update_automate: ['name', 'min_max', 'price_profit', 'profit', 'description', 'custom_comments', 'refill_support', 'status'].reduce((a: any, k) => { a[k] = service?.settings ? String(service.settings[k]) === '1' : true; return a; }, {}),
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -111,6 +114,27 @@ export function ServiceFormClient({ service, categories, providers }: any) {
             <div className="space-y-2">
               <label className="text-sm font-medium">Description</label>
               <textarea className="flex w-full min-h-20 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.description} onChange={e => set('description', e.target.value)} />
+            </div>
+            {/* Laravel parity: is_refill_support + update_service + update_automate checkboxes */}
+            <div className="space-y-2 border-t pt-4">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input type="checkbox" checked={form.is_refill_support} onChange={e => set('is_refill_support', e.target.checked)} />
+                Refill Support
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input type="checkbox" checked={form.update_service} onChange={e => set('update_service', e.target.checked)} />
+                Auto-update service (sync from provider)
+              </label>
+              {form.update_service && (
+                <div className="grid grid-cols-2 gap-2 pl-6 md:grid-cols-4">
+                  {(['name', 'min_max', 'price_profit', 'profit', 'description', 'custom_comments', 'refill_support', 'status'] as const).map(k => (
+                    <label key={k} className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={form.update_automate[k]} onChange={e => set('update_automate', { ...form.update_automate, [k]: e.target.checked })} />
+                      {k}
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
             {error && <Toast type="error" message={error} />}
             {success && <Toast type="success" message={success} />}

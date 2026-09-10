@@ -176,8 +176,10 @@ model Service {
   max                     Int
   description             String?
   status                  Boolean     @default(true)
+  is_refill_support       Boolean     @default(false)
   provider_service_id     String?
   refill_provider_service_id String?
+  settings                Json?
   created_at              DateTime    @default(now())
   updated_at              DateTime    @updatedAt
 

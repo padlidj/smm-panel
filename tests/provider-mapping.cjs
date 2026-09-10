@@ -148,8 +148,9 @@ async function bodyOf(fn, args) {
     assert.equal(svc.category_id, 1); assert.equal(svc.refill_provider_service_id, '7'); assert.equal(svc.description, '-');
     const rep2 = await syncApi.syncProviderServices(cfgProvider);
     assert.equal(rep2.updated, 0); assert.equal(rep2.added, 0); assert.equal(rep2.disabled, 0);
-    // flag off min_max: change provider min -> must NOT update min
+    // per-service flag off (settings.min_max=0, Laravel semantics): provider min change must NOT update
     services[0].min = '50';
+    rows[0].settings = { ...rows[0].settings, min_max: '0' };
     const rep3 = await syncApi.syncProviderServices(cfgProvider);
     assert.equal(rep3.updated, 0, 'min_max flag off blocks min-only change');
     // vanish -> disable (non-empty list; empty list must never mass-disable)

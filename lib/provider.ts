@@ -516,13 +516,23 @@ export async function computeServiceRows(provider: any, data: any) {
   return rows;
 }
 
+const DEFAULT_SERVICE_SETTINGS = { update_service: '1', name: '1', min_max: '1', price_profit: '1', profit: '1', description: '1', custom_comments: '1', refill_support: '1', status: '1' };
+
 // Persist computed rows: per-item category find-or-create, idempotent upsert (only flagged
 // fields, only real changes), disable vanished. PITFALL parity: string-cast seen ids,
 // manual services (null provider_service_id) excluded from disable.
 export async function syncServiceRows(provider: any, rows: Awaited<ReturnType<typeof computeServiceRows>>, options?: { disableMissing?: boolean }) {
   const config = provider.service_config || {};
-  const flags = config.settings || {};
-  const flagOn = (k: string) => flags[k] === undefined || String(flags[k]) === '1' || flags[k] === true;
+  const provFlags = config.settings || {};
+  // Laravel cron parity: service.settings present + update_service!=1 -> row frozen (skip).
+  // Settings present -> field flags strict '1'. Legacy rows (no settings) -> provider flags, on-by-default.
+  const flagsFor = (existing: any) => {
+    const s = existing?.settings as any;
+    if (!s || typeof s !== 'object') return provFlags;
+    if (String(s.update_service) !== '1') return null;
+    return s;
+  };
+  const flagOn = (flags: any, k: string) => !flags || String(flags[k]) === '1' || (flags === provFlags && flags[k] === undefined);
   const catCache = new Map<string, number>();
   const report: SyncReport = { added: 0, updated: 0, disabled: 0, details: [] };
   const seen = new Set<string>();
@@ -532,20 +542,25 @@ export async function syncServiceRows(provider: any, rows: Awaited<ReturnType<ty
     const category = await categoryByName(row.category_name, catCache);
     const existing = await prisma.service.findFirst({ where: { provider_id: provider.id, provider_service_id: row.provider_service_id } });
     if (!existing) {
-      await prisma.service.create({ data: { provider_id: provider.id, category_id: category, ...row, category_name: undefined, status: true } as any });
+      await prisma.service.create({ data: { provider_id: provider.id, category_id: category, ...row, category_name: undefined, status: true, is_refill_support: !!row.refill_provider_service_id, settings: DEFAULT_SERVICE_SETTINGS } as any });
       report.added++;
       report.details.push(`+ ${row.provider_service_id} ${row.name}`);
       continue;
     }
     const patch: any = {};
-    if (flagOn('name') && existing.name !== row.name) patch.name = row.name;
-    if (flagOn('min_max') && (existing.min !== row.min || existing.max !== row.max)) { patch.min = row.min; patch.max = row.max; }
-    if (flagOn('price_profit') && (existing.price !== row.price || existing.profit !== row.profit)) { patch.price = row.price; patch.profit = row.profit; }
-    if (flagOn('description') && existing.description !== row.description) patch.description = row.description;
-    if (flagOn('custom_comments') && existing.type !== row.type) patch.type = row.type as any;
-    if (flagOn('refill_support') && existing.refill_provider_service_id !== row.refill_provider_service_id) patch.refill_provider_service_id = row.refill_provider_service_id;
-    if (flagOn('category') && existing.category_id !== category) patch.category_id = category;
-    if (flagOn('status') && !existing.status) patch.status = true;
+    const flags = flagsFor(existing);
+    if (!flags) continue; // frozen by per-service settings (Laravel update_service=0)
+    if (flagOn(flags, 'name') && existing.name !== row.name) patch.name = row.name;
+    if (flagOn(flags, 'min_max') && (existing.min !== row.min || existing.max !== row.max)) { patch.min = row.min; patch.max = row.max; }
+    if (flagOn(flags, 'price_profit') && (existing.price !== row.price || existing.profit !== row.profit)) { patch.price = row.price; patch.profit = row.profit; }
+    if (flagOn(flags, 'description') && existing.description !== row.description) patch.description = row.description;
+    if (flagOn(flags, 'custom_comments') && existing.type !== row.type) patch.type = row.type as any;
+    if (flagOn(flags, 'refill_support') && existing.refill_provider_service_id !== row.refill_provider_service_id) {
+      patch.refill_provider_service_id = row.refill_provider_service_id;
+      patch.is_refill_support = !!row.refill_provider_service_id;
+    }
+    if (flagOn(flags, 'category') && existing.category_id !== category) patch.category_id = category;
+    if (flagOn(flags, 'status') && !existing.status) patch.status = true;
     if (Object.keys(patch).length) {
       await prisma.service.update({ where: { id: existing.id }, data: patch });
       report.updated++;
