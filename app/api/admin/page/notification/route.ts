@@ -8,8 +8,12 @@ export async function POST(req: Request) {
   if (!session || (session.user as any)?.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const { title, content } = await req.json();
+    const { id, title, content } = await req.json();
     if (!title || !content) return NextResponse.json({ error: 'Title and content required' }, { status: 400 });
+    if (id) {
+      await prisma.websiteInformation.update({ where: { id: parseInt(id) }, data: { title, content } });
+      return NextResponse.json({ message: 'Notification updated' });
+    }
     await prisma.websiteInformation.create({ data: { title, content, status: true } });
     return NextResponse.json({ message: 'Notification saved' });
   } catch (e: any) {

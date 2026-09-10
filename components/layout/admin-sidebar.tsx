@@ -41,6 +41,7 @@ const menuItems = [
     { href: '/admin/log/admin/login', label: 'Admin Login' },
   ]},
   { href: '/admin/page/notification', label: 'Pages', icon: FileText },
+  { href: '/admin/page/hof', label: 'Top Terbaik', icon: FileText },
 ];
 
 export function AdminSidebar() {
