@@ -18,6 +18,20 @@ export function OrderEditClient({ order }: { order: any }) {
   const [remains, setRemains] = useState(String(order.remains));
   const [startCount, setStartCount] = useState(String(order.start_count));
   const [saving, setSaving] = useState(false);
+  const [refilling, setRefilling] = useState(false);
+
+  const refill = async () => {
+    setRefilling(true);
+    try {
+      const res = await fetch('/api/admin/order/refill/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: order.id }) });
+      const j = await res.json();
+      alert(j.status ? j.message : j.error);
+      router.refresh();
+    } catch (e: any) { alert(e.message); }
+    setRefilling(false);
+  };
+
+  const canRefill = order.status === 'SUCCESS' && Date.now() - new Date(order.created_at).getTime() < 30 * 86400_000;
 
   const save = async () => {
     setSaving(true);
@@ -52,6 +66,7 @@ export function OrderEditClient({ order }: { order: any }) {
           </label>
         </div>
         <Button className="mt-4" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Simpan'}</Button>
+        {canRefill && <Button variant="outline" className="mt-4 ml-2" onClick={refill} disabled={refilling}>{refilling ? 'Mengirim...' : 'Refill ke Provider'}</Button>}
       </CardContent>
     </Card>
   );
