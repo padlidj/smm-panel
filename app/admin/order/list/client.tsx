@@ -1,36 +1,22 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination } from '@/components/ui/pagination';
 import { confirmDelete } from '@/lib/admin-client';
 
 const PER_PAGE = 20;
 
-export function OrderListClient({ orders, total, page, status, username, from, to, service_id }: any) {
+export function OrderListClient({ orders, total, page, filters, service_id }: any) {
   const router = useRouter();
-  const [st, setSt] = useState(status);
-  const [un, setUn] = useState(username);
-  const [f, setF] = useState(from);
-  const [t, setT] = useState(to);
   const totalPages = Math.ceil(total / PER_PAGE);
-
-  const filter = () => {
-    const params = new URLSearchParams();
-    if (st) params.set('status', st);
-    if (un) params.set('username', un);
-    if (f) params.set('from', f);
-    if (t) params.set('to', t);
-    if (service_id) params.set('service_id', String(service_id)); // preserve per-service drill-down
-    router.push(`/admin/order/list?${params}`);
-  };
+  const f = filters || {};
+  const qp = new URLSearchParams(Object.entries(f).filter(([k, v]) => k !== 'page' && v).map(([k, v]) => [k, String(v)])).toString();
 
   const statusColor = (s: string) => {
     const map: Record<string, string> = { PENDING: 'secondary', PROCESSING: 'default', SUCCESS: 'success', ERROR: 'destructive', PARTIAL: 'outline' };
@@ -41,18 +27,26 @@ export function OrderListClient({ orders, total, page, status, username, from, t
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Orders</h1>
       <Card>
-        <CardHeader><CardTitle className="text-lg">Filter</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3">
-            <Select value={st} onChange={e => setSt(e.target.value)} className="max-w-40">
-              <option value="">All Status</option>
+        <CardContent className="p-3">
+          {/* Laravel OrderDataTable filter parity */}
+          <form className="flex flex-wrap items-center gap-2" action="/admin/order/list" method="get">
+            {service_id ? <input type="hidden" name="service_id" value={service_id} /> : null}
+            <Input name="search" defaultValue={f.search || ''} placeholder="Cari ID / target / provider order / user / service" className="h-10 w-72" />
+            <select name="filter_status" defaultValue={f.filter_status || f.status || ''} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+              <option value="">Status: All</option>
               {['PENDING', 'PROCESSING', 'SUCCESS', 'ERROR', 'PARTIAL'].map(s => <option key={s} value={s}>{s}</option>)}
-            </Select>
-            <Input placeholder="Username..." value={un} onChange={e => setUn(e.target.value)} className="max-w-40" />
-            <Input type="date" value={f} onChange={e => setF(e.target.value)} className="max-w-40" />
-            <Input type="date" value={t} onChange={e => setT(e.target.value)} className="max-w-40" />
-            <Button onClick={filter}>Filter</Button>
-          </div>
+            </select>
+            <Input name="filter_user" defaultValue={f.filter_user || f.username || ''} placeholder="User" className="h-10 w-32" />
+            <Input name="filter_service" defaultValue={f.filter_service || ''} placeholder="Layanan" className="h-10 w-40" />
+            <Input name="filter_service_provider" defaultValue={f.filter_service_provider || ''} placeholder="Provider" className="h-10 w-36" />
+            <select name="filter_is_api" defaultValue={f.filter_is_api || ''} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+              <option value="">Sumber: All</option><option value="1">API</option><option value="0">WEB</option>
+            </select>
+            <Input type="date" name="filter_start_date" defaultValue={f.filter_start_date || f.from || ''} className="h-10 w-40" />
+            <Input type="date" name="filter_end_date" defaultValue={f.filter_end_date || f.to || ''} className="h-10 w-40" />
+            <Button type="submit" size="sm">Filter</Button>
+            <Button type="button" size="sm" variant="secondary" onClick={() => router.push('/admin/order/list')}>Reset</Button>
+          </form>
         </CardContent>
       </Card>
       <Card>
@@ -91,7 +85,7 @@ export function OrderListClient({ orders, total, page, status, username, from, t
             </TableBody>
           </Table>
         </CardContent>
-        <Pagination page={page} totalPages={totalPages} onChange={p => router.push(`/admin/order/list?page=${p}${st ? `&status=${st}` : ''}${un ? `&username=${un}` : ''}${f ? `&from=${f}` : ''}${t ? `&to=${t}` : ''}${service_id ? `&service_id=${service_id}` : ''}`)} />
+        <Pagination page={page} totalPages={totalPages} onChange={p => router.push(`/admin/order/list?page=${p}${qp ? '&' + qp : ''}`)} />
       </Card>
     </div>
   );
