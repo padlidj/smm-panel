@@ -29,13 +29,13 @@ function load(file, mocks = {}, cache = {}) {
 }
 
 const provider = { id: 7, provider_id: 'P1', provider_key: 'KEY', provider_secret: 'SEC', currency: 'IDR', endpoint: { order: 'http://mock/' } };
-// request mapping: action literal + admin field -> output field
-const mapping = { action: 'add', api_key: 'provider_key', service: 'service_id' };
-const statusMapping = { action: 'status', key: 'provider_key', id: 'order_id' };
-const refillMapping = { action: 'refill', key: 'provider_key', service: 'refill_service_id' };
-const refillStatusMapping = { action: 'refill_status', key: 'provider_key', id: 'refill_id' };
-const balanceMapping = { action: 'balance', key: 'provider_key' };
-const servicesMapping = { action: 'services', key: 'provider_key' };
+// Laravel semantics: mapping key = panel field, value = provider param name ('-' = send as-is, '' = skip)
+const mapping = { action: 'add', provider_key: 'key', service: 'service' };
+const statusMapping = { action: 'status', provider_key: 'key', order_id: 'id' };
+const refillMapping = { action: 'refill', provider_key: 'key', order_id: 'order' };
+const refillStatusMapping = { action: 'refill_status', provider_key: 'key', refill_id: 'refill_id' };
+const balanceMapping = { action: 'balance', provider_key: 'key' };
+const servicesMapping = { action: 'services', provider_key: 'key' };
 
 let request;
 const model = { updateMany: async () => ({ count: 1 }), update: async () => {} };
@@ -64,22 +64,22 @@ async function bodyOf(fn, args) {
 
   // 1. executeProviderOrder
   assert.deepEqual(await bodyOf('executeProviderOrder', [provider, order, { service }]),
-    { action: 'add', provider_key: 'KEY', service_id: '123' });
+    { action: 'add', key: 'KEY', service: '123' });
   // 2. checkProviderStatus
   assert.deepEqual(await bodyOf('checkProviderStatus', [{ ...provider, status_config: { endpoint: 'http://mock/', request: statusMapping } }, order]),
-    { action: 'status', provider_key: 'KEY', order_id: '42' });
+    { action: 'status', key: 'KEY', id: '42' });
   // 3. executeProviderRefill
   assert.deepEqual(await bodyOf('executeProviderRefill', [{ ...provider, refill_config: { endpoint: 'http://mock/', request: refillMapping } }, refill]),
-    { action: 'refill', provider_key: 'KEY', refill_service_id: 'r123' });
+    { action: 'refill', key: 'KEY', order: '42' });
   // 4. checkRefillStatus
   assert.deepEqual(await bodyOf('checkRefillStatus', [{ ...provider, refill_status_config: { endpoint: 'http://mock/', request: refillStatusMapping } }, refill]),
-    { action: 'refill_status', provider_key: 'KEY', refill_id: 'R9' });
+    { action: 'refill_status', key: 'KEY', refill_id: 'R9' });
   // 5. syncProviderServices
   assert.deepEqual(await bodyOf('syncProviderServices', [{ ...provider, service_config: { endpoint: 'http://mock/', request: servicesMapping } }]),
-    { action: 'services', provider_key: 'KEY' });
+    { action: 'services', key: 'KEY' });
   // 6. checkBalance
   assert.deepEqual(await bodyOf('checkBalance', [{ ...provider, profile_config: { endpoint: 'http://mock/', request: balanceMapping } }]),
-    { action: 'balance', provider_key: 'KEY' });
+    { action: 'balance', key: 'KEY' });
 
   // 7. headers: output header name -> source key
   let h;
@@ -95,17 +95,17 @@ async function bodyOf(fn, args) {
   const litProvider = { ...provider, profile_config: { endpoint: 'http://mock/', request: { action: 'add', key: 'provider_key', note: 'literal {provider_key}' } } };
   assert.deepEqual(await bodyOf('checkBalance', [litProvider, {}]), { action: 'add', provider_key: 'KEY', 'literal {provider_key}': '' });
 
-  // 9. every runtime value available in map (spot-check unknown source -> empty)
+  // 9. '-' = value sent under panel field name; unknown panel fields -> empty string
   const wide = { ...provider, profile_config: { endpoint: 'http://mock/', request: {
-    a: 'service', b: 'target', c: 'quantity', d: 'provider_id', e: 'provider_key', f: 'provider_secret',
-    g: 'custom_comments', h: 'username', i: 'service_id', j: 'refill_service_id', k: 'order_id',
-    l: 'refill_id', m: 'key', n: 'start_count', o: 'remains', p: 'status', q: 'balance' } } };
+    action: 'balance', provider_id: '-', provider_key: 'key', provider_secret: 'secret',
+    service: 'svc', target: 'link', quantity: 'quantity' } } };
   const got = await bodyOf('checkBalance', [wide, {}]);
-  assert.equal(got.provider_key, 'KEY');
-  assert.equal(got.provider_secret, 'SEC');
-  assert.equal(got.provider_id, 'P1');
+  assert.equal(got.action, 'balance');
+  assert.equal(got.provider_id, 'P1', "'-' sends provider_id under its own name");
   assert.equal(got.key, 'KEY');
-  for (const k of ['service', 'target', 'quantity', 'custom_comments', 'username', 'service_id', 'refill_service_id', 'order_id', 'refill_id', 'start_count', 'remains', 'status', 'balance']) assert.equal(got[k], '', `source ${k} unmapped -> ''`);
+  assert.equal(got.secret, 'SEC');
+  assert.equal(got.svc, '', 'checkBalance values has no service -> empty');
+  assert.equal(got.link, ''); assert.equal(got.quantity, '');
 
   // 10. order defaults: executeProviderOrder without config.request -> sensible default mapping
   const bare = { ...provider, order_config: { endpoint: 'http://mock/' } };

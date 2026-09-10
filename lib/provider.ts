@@ -13,10 +13,10 @@ function explicitlyRejected(data: any) {
     (typeof data?.error === 'string' && data.error.trim().length > 0);
 }
 
-// Build request body from mapping: { adminField: 'outputField' } + values map
-// Special: key 'action' value is literal (output['action'] = 'add').
-// Other keys: value names output field, runtime value comes from values map.
-// Legacy template format (body config with {placeholders}): isTemplate from caller.
+// Build request body from mapping. Laravel semantics (ref User/OrderController):
+// panel field name is the KEY, provider param name is the VALUE: post[<value>] = values[<key>].
+// 'action' value stays literal. '-' = send provider_id literal; '' = skip.
+// Legacy template format (config.body with {placeholders}): isTemplate from caller.
 function buildRequest(mapping: Record<string, string>, values: Record<string, any>, isTemplate: boolean): Record<string, any> {
   if (isTemplate) {
     // Legacy template substitution
@@ -40,13 +40,16 @@ function buildRequest(mapping: Record<string, string>, values: Record<string, an
 
   // Mapping format
   const out: Record<string, any> = {};
-  for (const [key, val] of Object.entries(mapping)) {
-    if (key === 'action') {
-      out[key] = val;
-    } else {
-      const v = values[val];
-      out[val] = v !== undefined && v !== null ? String(v) : '';
+  for (const [panelField, providerParamRaw] of Object.entries(mapping)) {
+    const providerParam = String(providerParamRaw ?? '').trim();
+    if (panelField === 'action') {
+      if (providerParam) out.action = providerParam; // literal value, '-' tolerated as literal
+      continue;
     }
+    if (!providerParam) continue; // empty = field unused
+    if (providerParam === '-') { out[panelField] = String(values[panelField] ?? ''); continue; } // send panel value under panel name
+    const v = values[panelField];
+    out[providerParam] = v !== undefined && v !== null ? String(v) : '';
   }
   return out;
 }
@@ -102,7 +105,7 @@ export async function executeProviderOrder(provider: any, order: any, extra: any
     const endpoint = config.endpoint || provider.endpoint?.order;
     if (!endpoint) return { success: false, error: 'No order endpoint' };
 
-    const mapping = config.request || config.body || { action: 'add', key: 'provider_key', service: 'service_id' };
+    const mapping = config.request || config.body || { action: 'add', provider_key: 'key', service: 'service' };
     const isTemplate = !config.request && config.body;
     const values = isTemplate
       ? {
@@ -147,7 +150,7 @@ export async function executeProviderOrder(provider: any, order: any, extra: any
     const res = await fetch(endpoint, { method: 'POST', headers, body: reqBody });
     const data = await res.json();
 
-    const orderPath = config.response?.order?.order_id || 'order_id';
+    const orderPath = toPath(config.response?.order?.order_id || config.response?.order_id) || 'order_id';
     const providerOrderId = responseId(get(data, orderPath));
     const providerLog = JSON.stringify(data);
 
@@ -182,7 +185,7 @@ export async function checkProviderStatus(provider: any, order: any) {
     const endpoint = config.endpoint || provider.endpoint?.status;
     if (!endpoint || !order.provider_order_id) return null;
 
-    const mapping = config.request || config.body || { action: 'status', key: 'provider_key', id: 'order_id' };
+    const mapping = config.request || config.body || { action: 'status', provider_key: 'key', order_id: 'id' };
     const isTemplate = !!config.body && !config.request;
     const values = isTemplate
       ? {
@@ -214,16 +217,17 @@ export async function checkProviderStatus(provider: any, order: any) {
     if (!res.ok) return null;
 
     const resp = config.response || {};
-    const statusValue = get(data, resp.status || 'status') ?? null;
-    const startCount = get(data, resp.start_count || 'start_count') ?? null;
-    const remains = get(data, resp.remains || 'remains') ?? null;
+    const statusValue = get(data, toPath(resp.status) || 'status') ?? null;
+    const startCount = get(data, toPath(resp.start_count) || 'start_count') ?? null;
+    const remains = get(data, toPath(resp.remains) || 'remains') ?? null;
 
     let mappedStatus: string | null = null;
     if (statusValue !== null) {
       const sv = String(statusValue).toLowerCase();
       for (const [status, vals] of Object.entries(config.status_value || {})) {
-        const list = Array.isArray(vals) ? vals : [vals];
-        if (list.some((v) => String(v).toLowerCase() === sv)) {
+        // admin types "Pending, Proccess" — split comma lists (Laravel stores list arrays)
+        const list = Array.isArray(vals) ? vals : String(vals).split(',');
+        if (list.some((v) => String(v).trim().toLowerCase() === sv)) {
           mappedStatus = status.toUpperCase();
           break;
         }
@@ -249,7 +253,7 @@ export async function executeProviderRefill(provider: any, refill: any) {
     const endpoint = config.endpoint || provider.endpoint?.refill;
     if (!endpoint) return { success: false, error: 'No refill endpoint' };
 
-    const mapping = config.request || config.body || { action: 'refill', key: 'provider_key', service: 'refill_service_id' };
+    const mapping = config.request || config.body || { action: 'refill', provider_key: 'key', service: 'refill_service_id' };
     const isTemplate = !!config.body && !config.request;
     const values = isTemplate
       ? {
@@ -292,7 +296,7 @@ export async function executeProviderRefill(provider: any, refill: any) {
     const res = await fetch(endpoint, { method: 'POST', headers, body: reqBody });
     const data = await res.json();
 
-    const refillPath = config.response?.refill?.refill_id || config.response?.refill_id || 'refill_id';
+    const refillPath = toPath(config.response?.refill?.refill_id || config.response?.refill_id) || 'refill_id';
     const providerRefillId = responseId(get(data, refillPath));
     if (!providerRefillId) {
       const rejected = res.ok && explicitlyRejected(data);
@@ -319,7 +323,7 @@ export async function checkRefillStatus(provider: any, refill: any) {
     const endpoint = config.endpoint || provider.endpoint?.refill_status || provider.endpoint?.status;
     if (!endpoint || !refill.provider_refill_id) return null;
 
-    const mapping = config.request || config.body || { action: 'refill_status', key: 'provider_key', id: 'refill_id' };
+    const mapping = config.request || config.body || { action: 'refill_status', provider_key: 'key', refill_id: 'refill_id' };
     const isTemplate = !!config.body && !config.request;
     const values = isTemplate
       ? {
@@ -353,14 +357,14 @@ export async function checkRefillStatus(provider: any, refill: any) {
     if (!res.ok) return null;
 
     const resp = config.response || {};
-    const statusValue = get(data, resp.status || 'status') ?? null;
+    const statusValue = get(data, toPath(resp.status) || 'status') ?? null;
 
     let mappedStatus: string | null = null;
     if (statusValue !== null) {
       const sv = String(statusValue).toLowerCase();
       for (const [status, vals] of Object.entries(config.status_value || {})) {
-        const list = Array.isArray(vals) ? vals : [vals];
-        if (list.some((v) => String(v).toLowerCase() === sv)) {
+        const list = Array.isArray(vals) ? vals : String(vals).split(',');
+        if (list.some((v) => String(v).trim().toLowerCase() === sv)) {
           mappedStatus = status.toUpperCase();
           break;
         }
@@ -421,7 +425,7 @@ export async function fetchProviderServices(provider: any): Promise<any | null> 
     const endpoint = config.endpoint || provider.endpoint?.services || provider.endpoint?.service;
     if (!endpoint) return null;
 
-    const mapping = config.request || config.body || { action: 'services', key: 'provider_key' };
+    const mapping = config.request || config.body || { action: 'services', provider_key: 'key' };
     const isTemplate = !!config.body && !config.request;
     const values = isTemplate
       ? {
@@ -478,7 +482,7 @@ export async function computeServiceRows(provider: any, data: any) {
 
   const path = (key: string) => toPath(resp[key]) || key;
   const field = (item: any, key: string) => get(item, path(key));
-  const usd = String(config.currency || provider.currency || 'IDR').toUpperCase() === 'USD';
+  const usd = String(provider.currency || config.currency || 'IDR').toUpperCase() === 'USD';
   const fx = usd ? await usdToIdrRate() : 1;
   const ov = config.other_value || {};
 
@@ -569,7 +573,7 @@ export async function checkBalance(provider: any) {
     const endpoint = config.endpoint;
     if (!endpoint) return null;
 
-    const mapping = config.request || config.body || { action: 'balance', key: 'provider_key' };
+    const mapping = config.request || config.body || { action: 'balance', provider_key: 'key' };
     const isTemplate = !!config.body && !config.request;
     const values = isTemplate
       ? {
@@ -596,8 +600,8 @@ export async function checkBalance(provider: any) {
     if (!res.ok) return null;
 
     const resp = config.response || {};
-    const balance = get(data, resp.balance || 'balance', null);
-    const currency = get(data, resp.currency || 'currency', provider.currency);
+    const balance = get(data, toPath(resp.balance) || 'balance', null);
+    const currency = get(data, toPath(resp.currency) || 'currency', provider.currency);
     return {
       balance: balance !== null ? Number(balance) : null,
       currency,
