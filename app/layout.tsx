@@ -14,7 +14,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const name = cfg.website_name || 'KuyGas';
   return {
     title: { default: name, template: `%s | ${name}` },
-    description: 'Social Media Marketing Panel',
+    description: cfg.meta_description || 'Social Media Marketing Panel',
+    keywords: cfg.meta_keywords || undefined,
     icons: cfg.logo ? { icon: cfg.logo } : undefined,
   };
 }

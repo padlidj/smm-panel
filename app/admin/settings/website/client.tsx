@@ -18,11 +18,24 @@ export function SettingsClient({ value }: any) {
     is_reset_password_enabled: value.is_reset_password_enabled ?? false,
     is_email_verification_enabled: value.is_email_verification_enabled ?? false,
     is_maintenance: value.is_maintenance ?? false,
+    meta_description: value.meta_description || '',
+    meta_keywords: value.meta_keywords || '',
+    order_info: value.order_info || '',
+    deposit_info: value.deposit_info || '',
+    smtp: { host: '', port: '', username: '', password: '', from: '', encryption: '', ...(value.smtp || {}) },
+    midtrans_payment: { server_key: (value.midtrans_payment || {}).server_key || '' },
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+  const setIn = (k: string, sub: string, v: any) => setForm((f: any) => ({ ...f, [k]: { ...f[k], [sub]: v } }));
+  const area = (label: string, k: string) => (
+    <div className="space-y-2">
+      <label className="text-sm font-medium">{label}</label>
+      <textarea className="w-full rounded-md border bg-transparent p-3 text-sm min-h-20" value={form[k]} onChange={e => set(k, e.target.value)} />
+    </div>
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +95,36 @@ export function SettingsClient({ value }: any) {
                   input.click();
                 }}>Upload</Button>
               </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Meta Description</label>
+              <Input value={form.meta_description} onChange={e => set('meta_description', e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Meta Keywords</label>
+              <Input value={form.meta_keywords} onChange={e => set('meta_keywords', e.target.value)} />
+            </div>
+            {area('Order Info (HTML, tampil di form order baru)', 'order_info')}
+            {area('Deposit Info (HTML, tampil di form deposit baru)', 'deposit_info')}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">SMTP Host</label>
+              <div className="grid grid-cols-3 gap-2">
+                <Input placeholder="smtp.gmail.com" value={form.smtp.host} onChange={e => setIn('smtp', 'host', e.target.value)} />
+                <Input placeholder="587" value={form.smtp.port} onChange={e => setIn('smtp', 'port', e.target.value)} />
+                <select className="rounded-md border bg-transparent px-2 text-sm" value={form.smtp.encryption} onChange={e => setIn('smtp', 'encryption', e.target.value)}>
+                  <option value="">tls</option>
+                  <option value="ssl">ssl</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="SMTP username" value={form.smtp.username} onChange={e => setIn('smtp', 'username', e.target.value)} />
+                <Input placeholder="SMTP password" type="password" value={form.smtp.password} onChange={e => setIn('smtp', 'password', e.target.value)} />
+              </div>
+              <Input placeholder="From address (opsional)" value={form.smtp.from} onChange={e => setIn('smtp', 'from', e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Midtrans Server Key</label>
+              <Input type="password" value={form.midtrans_payment.server_key} onChange={e => setIn('midtrans_payment', 'server_key', e.target.value)} placeholder="kosongkan = pakai env MIDTRANS_SERVER_KEY" />
             </div>
             <div className="space-y-2">
               {toggle('Registration Enabled', 'is_register_enabled')}

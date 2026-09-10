@@ -1,20 +1,24 @@
 import nodemailer from 'nodemailer';
+import { getMainConfig } from './config';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+// DB main.smtp wins, env is fallback (original behavior). sendEmail stays a no-op when unconfigured.
+let cached: { key: string; tr: nodemailer.Transporter } | null = null;
 
-// ponytail: SMTP_HOST/USER/PASS required in .env. Add queue when volume > 100/day.
 export async function sendEmail(to: string, subject: string, html: string) {
-  if (!process.env.SMTP_USER) return; // no-op if unconfigured
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM || `"SMM Panel" <${process.env.SMTP_USER}>`,
+  const cfg = await getMainConfig();
+  const s = cfg.smtp || {};
+  const host = s.host || process.env.SMTP_HOST || 'smtp.gmail.com';
+  const port = Number(s.port || process.env.SMTP_PORT || 587);
+  const user = s.username || process.env.SMTP_USER;
+  const pass = s.password || process.env.SMTP_PASS;
+  const enc = s.encryption || '';
+  if (!user) return; // no-op if unconfigured
+  const key = `${host}:${port}:${user}:${pass}:${enc}`;
+  if (!cached || cached.key !== key) {
+    cached = { key, tr: nodemailer.createTransport({ host, port, secure: enc === 'ssl', auth: { user, pass } }) };
+  }
+  await cached.tr.sendMail({
+    from: s.from || process.env.SMTP_FROM || `"${cfg.website_name || 'SMM Panel'}" <${user}>`,
     to, subject, html,
   });
 }

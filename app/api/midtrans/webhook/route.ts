@@ -9,7 +9,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { order_id, transaction_status, status_code, gross_amount, signature_key, fraud_status } = body;
 
-    if (!verifySignature(order_id, status_code, gross_amount, signature_key)) {
+    if (!(await verifySignature(order_id, status_code, gross_amount, signature_key))) {
       return NextResponse.json({ status: false, message: 'Invalid signature' });
     }
 

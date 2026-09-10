@@ -1,13 +1,17 @@
 import crypto from 'crypto';
+import { getMainConfig } from './config';
 
-const MIDTRANS_API = process.env.MIDTRANS_IS_PRODUCTION === 'true'
-  ? 'https://app.midtrans.com/snap/v1'
-  : 'https://app.sandbox.midtrans.com/snap/v1';
+async function serverKey(): Promise<string | undefined> {
+  const cfg = await getMainConfig();
+  return cfg.midtrans_payment?.server_key || process.env.MIDTRANS_SERVER_KEY; // DB config wins, env fallback
+}
 
 export async function createSnapTransaction(orderId: string, amount: number, customer: { name: string; email: string }) {
-  const auth = Buffer.from(`${process.env.MIDTRANS_SERVER_KEY}:`).toString('base64');
+  const production = (await getMainConfig()).midtrans_payment?.is_production ?? process.env.MIDTRANS_IS_PRODUCTION === 'true';
+  const api = production ? 'https://app.midtrans.com/snap/v1' : 'https://app.sandbox.midtrans.com/snap/v1';
+  const auth = Buffer.from(`${await serverKey()}:`).toString('base64');
 
-  const res = await fetch(`${MIDTRANS_API}/transactions`, {
+  const res = await fetch(`${api}/transactions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${auth}` },
     body: JSON.stringify({
@@ -23,10 +27,10 @@ export async function createSnapTransaction(orderId: string, amount: number, cus
   return { token: data.token, redirect_url: data.redirect_url };
 }
 
-export function verifySignature(orderId: string, statusCode: string, grossAmount: string, signatureKey: string) {
+export async function verifySignature(orderId: string, statusCode: string, grossAmount: string, signatureKey: string) {
   const hash = crypto
     .createHash('sha512')
-    .update(orderId + statusCode + grossAmount + process.env.MIDTRANS_SERVER_KEY)
+    .update(orderId + statusCode + grossAmount + (await serverKey()))
     .digest('hex');
   return hash === signatureKey;
 }

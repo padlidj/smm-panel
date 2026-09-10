@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
+import { getMainConfig } from '@/lib/config';
 import { OrderNewClient } from './client';
 
 export const dynamic = 'force-dynamic';
@@ -21,5 +22,11 @@ export default async function OrderNewPage() {
   const cpMap: Record<number, any> = {};
   for (const c of customPrices) cpMap[c.service_id] = c;
 
-  return <OrderNewClient categories={categories} services={services} customPrices={cpMap} balance={Number(user?.balance || 0)} />;
+  const cfg = await getMainConfig();
+  return (
+    <>
+      {cfg.order_info ? <div className="mb-4 rounded-md border p-3 text-sm [&_table]:text-xs" dangerouslySetInnerHTML={{ __html: String(cfg.order_info) }} /> : null}
+      <OrderNewClient categories={categories} services={services} customPrices={cpMap} balance={Number(user?.balance || 0)} />
+    </>
+  );
 }

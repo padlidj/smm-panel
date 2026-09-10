@@ -11,10 +11,12 @@ export async function POST(req: Request) {
   try {
     const { key, ...values } = await req.json();
     if (!key) return NextResponse.json({ error: 'Key required' }, { status: 400 });
+    const existing = await prisma.websiteConfig.findUnique({ where: { key } });
+    const merged = { ...((existing?.value as any) || {}), ...values }; // Laravel postIndex keeps keys the form does not post (logo/favicon/banner)
     await prisma.websiteConfig.upsert({
       where: { key },
-      update: { value: values },
-      create: { key, value: values },
+      update: { value: merged },
+      create: { key, value: merged },
     });
     if (key === 'main') bumpMainConfig();
     return NextResponse.json({ message: 'Settings saved' });
