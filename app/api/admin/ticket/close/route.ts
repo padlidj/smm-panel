@@ -10,6 +10,9 @@ export async function POST(req: Request) {
 
   try {
     const { id } = await req.json();
+    const existing = await prisma.ticket.findUnique({ where: { id: parseInt(id) }, select: { status: true, user_id: true, subject: true } });
+    if (!existing) return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
+    if (existing.status === 'CLOSED') return NextResponse.json({ error: 'Tiket berstatus Closed.' });
     const ticket = await prisma.ticket.update({ where: { id: parseInt(id) }, data: { status: 'CLOSED' } });
     void notifyUser(ticket.user_id, 'ticket', `Ticket "${ticket.subject}" ditutup`,
       `<p>Ticket Anda telah ditutup oleh admin.</p>`);

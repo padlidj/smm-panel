@@ -15,9 +15,13 @@ import { confirmDelete, postForm } from '@/lib/admin-client';
 
 const PER_PAGE = 20;
 
-export function TicketListClient({ tickets, total, page, status, users }: any) {
+export function TicketListClient({ tickets, total, page, status, search, filter_user, filter_start_date, filter_end_date, users }: any) {
   const router = useRouter();
   const [st, setSt] = useState(status);
+  const [q, setQ] = useState(search || '');
+  const [fu, setFu] = useState(filter_user || '');
+  const [fd, setFd] = useState(filter_start_date || '');
+  const [td, setTd] = useState(filter_end_date || '');
   const [showSend, setShowSend] = useState(false);
   const [form, setForm] = useState({ user_id: '', subject: '', message: '' });
   const [sending, setSending] = useState(false);
@@ -39,6 +43,16 @@ export function TicketListClient({ tickets, total, page, status, users }: any) {
   const statusColor = (s: string) => {
     const map: Record<string, string> = { OPEN: 'destructive', REPLIED: 'default', CLOSED: 'secondary' };
     return map[s] || 'outline';
+  };
+
+  const filterParams = () => {
+    const p = new URLSearchParams();
+    if (q) p.set('search', q);
+    if (fu) p.set('filter_user', fu);
+    if (fd) p.set('filter_start_date', fd);
+    if (td) p.set('filter_end_date', td);
+    if (st) p.set('status', st);
+    return p.toString();
   };
 
   return (
@@ -65,10 +79,18 @@ export function TicketListClient({ tickets, total, page, status, users }: any) {
       <Card>
         <CardHeader><CardTitle className="text-lg">Filter</CardTitle></CardHeader>
         <CardContent>
-          <Select value={st} onChange={e => { setSt(e.target.value); router.push(`/admin/ticket/list${e.target.value ? `?status=${e.target.value}` : ''}`); }} className="max-w-40">
-            <option value="">All Status</option>
-            {['OPEN', 'REPLIED', 'CLOSED'].map(s => <option key={s} value={s}>{s}</option>)}
-          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input placeholder="Search ID / subject / user / status..." value={q} onChange={e => setQ(e.target.value)} className="max-w-60" />
+            <Input placeholder="Username" value={fu} onChange={e => setFu(e.target.value)} className="max-w-36" />
+            <Input type="date" value={fd} onChange={e => setFd(e.target.value)} className="max-w-40" />
+            <Input type="date" value={td} onChange={e => setTd(e.target.value)} className="max-w-40" />
+            <Select value={st} onChange={e => setSt(e.target.value)} className="max-w-40">
+              <option value="">All Status</option>
+              {['OPEN', 'REPLIED', 'CLOSED'].map(s => <option key={s} value={s}>{s}</option>)}
+            </Select>
+            <Button size="sm" onClick={() => router.push(`/admin/ticket/list?${filterParams()}`)}>Filter</Button>
+            <Button size="sm" variant="outline" onClick={() => router.push('/admin/ticket/list')}>Reset</Button>
+          </div>
         </CardContent>
       </Card>
       <Card>
@@ -101,7 +123,7 @@ export function TicketListClient({ tickets, total, page, status, users }: any) {
             </TableBody>
           </Table>
         </CardContent>
-        <Pagination page={page} totalPages={totalPages} onChange={p => router.push(`/admin/ticket/list?page=${p}${status ? `&status=${status}` : ''}`)} />
+        <Pagination page={page} totalPages={totalPages} onChange={p => { const f = filterParams(); router.push(`/admin/ticket/list?page=${p}${f ? `&${f}` : ''}`); }} />
       </Card>
     </div>
   );
