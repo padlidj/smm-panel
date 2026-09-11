@@ -40,7 +40,6 @@ const INDO: Cfg = {
 };
 
 function blankCfg() { return OPS.reduce((a, o) => ({ ...a, [o.key]: { endpoint: '', request: {}, response: {}, status_value: {}, advanced: '', ...(o.extra === 'service' ? { other_value: {}, price_setting: {}, profit_setting: {}, currency: 'IDR' } : {}) } }), {} as any); }
-
 function toForm(provider: any): Cfg {
   const out: Cfg = blankCfg();
   for (const op of OPS) {
@@ -73,11 +72,13 @@ export function ProviderFormClient({ provider }: any) {
   const [success, setSuccess] = useState('');
 
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+  // deep-copy only the active op's config; walk path INSIDE it (was walking the
+  // whole cfg map -> `next.request` undefined -> TypeError crash on any keystroke)
   const setC = (op: string, path: string[], v: any) => setCfg((c: any) => {
-    const next = { ...c, [op]: JSON.parse(JSON.stringify(c[op])) };
-    let n = next; for (const p of path.slice(0, -1)) n = n[p];
+    const clone = JSON.parse(JSON.stringify(c[op]));
+    let n = clone; for (const p of path.slice(0, -1)) n = n[p] ??= {};
     n[path[path.length - 1]] = v;
-    return { ...c, [op]: next };
+    return { ...c, [op]: clone };
   });
   const applyPreset = (which: 'v2' | 'indo') => {
     const src = which === 'v2' ? V2 : INDO;
@@ -142,6 +143,10 @@ export function ProviderFormClient({ provider }: any) {
                 <div className="space-y-1"><label className="text-sm font-medium">Status</label><select className={selCls} value={String(form.status)} onChange={e => set('status', e.target.value === 'true')}><option value="true">Aktif</option><option value="false">Nonaktif</option></select></div>
               </div>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.is_refill_support} onChange={e => set('is_refill_support', e.target.checked)} /> Refill Support</label>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">2. Endpoint Profil <span className="text-xs text-muted-foreground font-normal">(URL cek saldo — untuk tombol Balance di list)</span></label>
+                <Input value={cfg.profile_config.endpoint} onChange={e => setC('profile_config', ['endpoint'], e.target.value)} placeholder="Kosongkan jika tidak dibutuhkan" />
+              </div>
               <div className="flex gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => applyPreset('v2')}>Default Settings (SMM Luar)</Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => applyPreset('indo')}>Default Settings (SMM Indo)</Button>
