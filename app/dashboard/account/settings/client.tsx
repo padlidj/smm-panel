@@ -10,9 +10,9 @@ import { Toast } from '@/components/ui/toast';
 export function AccountSettingsClient({ user }: any) {
   const router = useRouter();
   const notif = user.notification || {};
-  const [orderNotif, setOrderNotif] = useState(notif.order !== '0');
-  const [ticketNotif, setTicketNotif] = useState(notif.ticket !== '0');
-  const [depositNotif, setDepositNotif] = useState(notif.deposit !== '0');
+  const [orderNotif, setOrderNotif] = useState(notif.order === '1');
+  const [ticketNotif, setTicketNotif] = useState(notif.ticket === '1');
+  const [depositNotif, setDepositNotif] = useState(notif.deposit === '1');
   const [whitelist, setWhitelist] = useState(user.api_whitelist_ips || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

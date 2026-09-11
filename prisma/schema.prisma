@@ -97,7 +97,7 @@ model User {
   reset_token     String?
   reset_token_expires DateTime?
   activate_token  String?
-  notification    Json      @default("{\"order\":\"1\"}")
+  notification    Json      @default("{\"order\":\"1\",\"deposit\":\"1\",\"ticket\":\"1\"}")
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt
 
