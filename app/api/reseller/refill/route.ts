@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { orderTarget, positiveInt } from '@/lib/order-input';
 import { debitGuard } from '@/lib/balance';
 import { executeProviderRefill } from '@/lib/provider';
+import { refillGuard } from '@/lib/refill';
 
 export async function POST(req: Request) {
   const body = await getApiParams(req);
@@ -18,17 +19,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: false, message: 'Missing required fields: order_id, quantity' });
   }
 
-  const order = await prisma.order.findFirst({
-    where: { id: Number(order_id), user_id: user.id },
-  });
-
-  if (!order) {
-    return NextResponse.json({ status: false, message: 'Order not found' });
-  }
-
-  if (order.status !== 'SUCCESS') {
-    return NextResponse.json({ status: false, message: 'Order must be SUCCESS to refill' });
-  }
+  const g = await refillGuard(prisma, Number(order_id), user.id);
+  if (!g.ok) return NextResponse.json({ status: false, message: g.message });
+  const order = g.order;
 
   const target = orderTarget(order.target);
   if (!target || !positiveInt(order.quantity)) return NextResponse.json({ status: false, message: 'Invalid original order target or quantity' });

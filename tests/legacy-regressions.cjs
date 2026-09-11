@@ -174,12 +174,13 @@ tests.resellerRefillDispatch = async () => {
   const manualProvider = { id: 1, name: 'MANUAL', refill_config: null };
   const autoProvider = { id: 2, name: 'AUTO_API', provider_key: 'key', refill_config: { endpoint: 'http://api.example/refill' } };
   
-  const orderWithManualProvider = { ...originalOrder, provider_id: 1 };
-  const orderWithAutoProvider = { ...originalOrder, provider_id: 2 };
+  const orderWithManualProvider = { ...originalOrder, provider_id: 1, created_at: new Date(), service: { is_refill_support: true }, service_provider: { name: 'MANUAL', is_refill_support: true } };
+  const orderWithAutoProvider = { ...originalOrder, provider_id: 2, created_at: new Date(), service: { is_refill_support: true }, service_provider: { name: 'AUTO_API', is_refill_support: true } };
   
   const dbAuto = {
-    order: { findFirst: async ({ where }) => where.id === 1 ? orderWithAutoProvider : null },
+    order: { findFirst: async ({ where }) => where.id === 1 ? orderWithAutoProvider : null, findUnique: async () => orderWithAutoProvider },
     orderRefill: { 
+      findFirst: async () => null,
       create: async ({ data }) => { refillCreated = true; return { id: 999, ...data, order: orderWithAutoProvider }; },
       findUnique: async ({ where }) => where.id === 999 ? { id: 999, order: orderWithAutoProvider, target: 'https://example.com', quantity: 5 } : null,
     },
@@ -189,8 +190,9 @@ tests.resellerRefillDispatch = async () => {
   };
   
   const dbManual = {
-    order: { findFirst: async ({ where }) => where.id === 1 ? orderWithManualProvider : null },
+    order: { findFirst: async ({ where }) => where.id === 1 ? orderWithManualProvider : null, findUnique: async () => orderWithManualProvider },
     orderRefill: { 
+      findFirst: async () => null,
       create: async ({ data }) => { refillCreated = true; return { id: 998, ...data, order: orderWithManualProvider }; },
       findUnique: async ({ where }) => where.id === 998 ? { id: 998, order: orderWithManualProvider, target: 'https://example.com', quantity: 5 } : null,
     },

@@ -103,12 +103,13 @@ tests.inputs = async () => {
     for (const target of [undefined, null, {}, 123, '', '   ', [], '  valid-target  ']) {
       let debits = 0, created = [];
       const service = { id: 1, provider_id: 7, name: 'test', price: 1000, profit: 10, min: 1, max: 100, provider: { id: 7, name: 'MANUAL' } };
-      const order = { id: 1, user_id: 1, provider_id: 7, status: 'SUCCESS', target, quantity: 10, price: 10, profit: 1 };
+      const order = { id: 1, user_id: 1, provider_id: 7, status: 'SUCCESS', target, quantity: 10, price: 10, profit: 1,
+        created_at: new Date(), service: { is_refill_support: true }, service_provider: { name: 'MP', is_refill_support: true } };
       const db = {
         service: { findFirst: async () => service }, customPrice: { findUnique: async () => null },
         serviceProvider: { findUnique: async () => service.provider },
         order: { findUnique: async () => order, findFirst: async () => order, create: async ({ data }) => { created.push(data); return { id: 2, ...data }; } },
-        orderRefill: { create: async ({ data }) => { created.push(data); return { id: 2, ...data }; } },
+        orderRefill: { findFirst: async () => null, create: async ({ data }) => { created.push(data); return { id: 2, ...data }; } },
         balanceLog: { create: async () => {} },
         $transaction: async (fn) => fn(db),
       };
@@ -127,10 +128,11 @@ tests.inputs = async () => {
   // Refill: debit and create in same tx so failure rolls back the debit.
   for (const route of ['order/refill', 'reseller/refill']) {
     let debits = 0, created = [], txAborted = false;
-    const order = { id: 1, user_id: 1, provider_id: 7, status: 'SUCCESS', target: 'valid', quantity: 10, price: 10, profit: 1 };
+    const order = { id: 1, user_id: 1, provider_id: 7, status: 'SUCCESS', target: 'valid', quantity: 10, price: 10, profit: 1,
+      created_at: new Date(), service: { is_refill_support: true }, service_provider: { name: 'MP', is_refill_support: true } };
     const db = {
       order: { findUnique: async () => order, findFirst: async () => order },
-      orderRefill: { create: async () => { throw Error('persist fail'); } },
+      orderRefill: { findFirst: async () => null, create: async () => { throw Error('persist fail'); } },
       balanceLog: { create: async () => {} },
       $transaction: async (fn) => { try { return await fn(db); } catch (e) { txAborted = true; throw e; } },
     };
