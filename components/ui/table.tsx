@@ -8,7 +8,7 @@ const Table = forwardRef<HTMLTableElement, HTMLAttributes<HTMLTableElement>>(({ 
 Table.displayName = 'Table';
 
 const TableHeader = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>(({ className = '', ...props }, ref) => (
-  <thead ref={ref} className={`[&_tr]:border-b ${className}`} {...props} />
+  <thead ref={ref} className={`bg-muted/40 [&_tr]:border-b [&_tr]:border-border/60 ${className}`} {...props} />
 ));
 TableHeader.displayName = 'TableHeader';
 
@@ -18,18 +18,18 @@ const TableBody = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSe
 TableBody.displayName = 'TableBody';
 
 const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTableRowElement>>(({ className = '', ...props }, ref) => (
-  <tr ref={ref} className={`border-b transition-colors hover:bg-muted/50 ${className}`} {...props} />
+  <tr ref={ref} className={`border-b border-border/50 transition-colors hover:bg-primary/[0.04] data-[state=selected]:bg-muted ${className}`} {...props} />
 ));
 TableRow.displayName = 'TableRow';
 
 const TableHead = forwardRef<HTMLTableCellElement, ThHTMLAttributes<HTMLTableCellElement>>(({ className = '', ...props }, ref) => (
-  <th ref={ref} className={`h-12 px-2 sm:px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap ${className}`} {...props} />
+  <th ref={ref} className={`h-11 px-2 sm:px-4 text-left align-middle text-xs font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap ${className}`} {...props} />
 ));
 TableHead.displayName = 'TableHead';
 
 const TableCell = forwardRef<HTMLTableCellElement, TdHTMLAttributes<HTMLTableCellElement>>(({ className = '', ...props }, ref) => (
-  <td ref={ref} className={`p-2 sm:p-4 align-middle whitespace-nowrap ${className}`} {...props} />
+  <td ref={ref} className={`p-2 sm:p-3.5 align-middle whitespace-nowrap ${className}`} {...props} />
 ));
 TableCell.displayName = 'TableCell';
 
-export { Table, TableHeader, TableBody, TableRow, TableHead, TableCell };
+export { Table, TableHeader, TableBody, TableRow, TableHead, TableCell }

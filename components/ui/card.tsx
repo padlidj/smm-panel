@@ -1,7 +1,7 @@
 import { HTMLAttributes, forwardRef } from 'react';
 
 const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(({ className = '', ...props }, ref) => (
-  <div ref={ref} className={`rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden min-w-0 ${className}`} {...props} />
+  <div ref={ref} className={`rounded-xl border bg-card text-card-foreground shadow-sm ring-1 ring-black/[0.02] dark:ring-white/[0.04] overflow-hidden min-w-0 ${className}`} {...props} />
 ));
 Card.displayName = 'Card';
 
