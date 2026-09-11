@@ -11,8 +11,15 @@ export async function POST(req: Request) {
   const body = await req.json();
   const { full_name, email } = body;
 
-  if (!email) return NextResponse.json({ status: false, message: 'Email wajib diisi.' });
+  const clean = String(email || '').trim().toLowerCase();
+  if (!clean) return NextResponse.json({ status: false, message: 'Email wajib diisi.' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) return NextResponse.json({ status: false, message: 'Format email tidak valid.' });
 
-  await prisma.user.update({ where: { id: userId }, data: { full_name, email } });
+  try {
+    await prisma.user.update({ where: { id: userId }, data: { full_name, email: clean } });
+  } catch (e: any) {
+    if (e?.code === 'P2002') return NextResponse.json({ status: false, message: 'Email sudah dipakai akun lain.' });
+    throw e;
+  }
   return NextResponse.json({ status: true, message: 'Profil berhasil disimpan.' });
 }

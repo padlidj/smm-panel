@@ -12,6 +12,7 @@ export async function POST(req: Request) {
   const { old_password, new_password } = await req.json();
 
   if (!old_password || !new_password) return NextResponse.json({ status: false, message: 'Isi password lama dan baru.' });
+  if (new_password.length < 6 || new_password.length > 40) return NextResponse.json({ status: false, message: 'Password minimal 6 karakter.' });
 
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { password: true } });
   if (!user) return NextResponse.json({ status: false, message: 'User not found' });

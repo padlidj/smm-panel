@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination } from '@/components/ui/pagination';
@@ -13,10 +13,17 @@ import { postForm, confirmDelete } from '@/lib/admin-client';
 const PER_PAGE = 20;
 const STATUSES = ['PENDING', 'PROCESSING', 'SUCCESS', 'ERROR'];
 
-export function RefillListClient({ refills, total, page, status }: any) {
+export function RefillListClient({ refills, total, page, query }: any) {
   const router = useRouter();
-  const [st, setSt] = useState(status);
+  const q = query || {};
+  const [form, setForm] = useState({ status: q.status || '', user: q.user || '', service: q.service || '', search: q.search || '', start_date: q.start_date || '', end_date: q.end_date || '' });
   const totalPages = Math.ceil(total / PER_PAGE);
+
+  const qs = (extra: Record<string, string> = {}) => {
+    const merged = { ...form, ...extra };
+    const p = new URLSearchParams(Object.entries(merged).filter(([, v]) => v) as [string, string][]);
+    return p.toString() ? `?${p}` : '';
+  };
 
   const setStatus = async (id: number, s: string) => {
     try {
@@ -25,16 +32,39 @@ export function RefillListClient({ refills, total, page, status }: any) {
     } catch (e: any) { alert(e.message); }
   };
 
+  const set = (k: string, v: string) => setForm({ ...form, [k]: v });
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Refills</h1>
       <Card>
         <CardHeader><CardTitle className="text-lg">Filter</CardTitle></CardHeader>
         <CardContent>
-          <Select value={st} onChange={e => { setSt(e.target.value); router.push(`/admin/order/refill/list${e.target.value ? `?status=${e.target.value}` : ''}`); }} className="max-w-40">
-            <option value="">All Status</option>
-            {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-          </Select>
+          <form className="flex flex-wrap items-end gap-2" onSubmit={e => { e.preventDefault(); router.push(`/admin/order/refill/list${qs()}`); }}>
+            <div className="space-y-1"><label className="text-xs text-muted-foreground">Status</label>
+              <Select value={form.status} onChange={e => set('status', e.target.value)} className="max-w-36">
+                <option value="">All Status</option>
+                {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+              </Select>
+            </div>
+            <div className="space-y-1"><label className="text-xs text-muted-foreground">User</label>
+              <Input className="max-w-36" placeholder="username" value={form.user} onChange={e => set('user', e.target.value)} />
+            </div>
+            <div className="space-y-1"><label className="text-xs text-muted-foreground">Layanan</label>
+              <Input className="max-w-36" placeholder="service name" value={form.service} onChange={e => set('service', e.target.value)} />
+            </div>
+            <div className="space-y-1"><label className="text-xs text-muted-foreground">Cari</label>
+              <Input className="max-w-36" placeholder="ID / target / order" value={form.search} onChange={e => set('search', e.target.value)} />
+            </div>
+            <div className="space-y-1"><label className="text-xs text-muted-foreground">Dari</label>
+              <Input type="date" className="max-w-36" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
+            </div>
+            <div className="space-y-1"><label className="text-xs text-muted-foreground">Sampai</label>
+              <Input type="date" className="max-w-36" value={form.end_date} onChange={e => set('end_date', e.target.value)} />
+            </div>
+            <Button type="submit">Cari</Button>
+            <Button type="button" variant="outline" onClick={() => { const empty = { status: '', user: '', service: '', search: '', start_date: '', end_date: '' }; setForm(empty); router.push('/admin/order/refill/list'); }}>Reset</Button>
+          </form>
         </CardContent>
       </Card>
       <Card>
@@ -81,7 +111,7 @@ export function RefillListClient({ refills, total, page, status }: any) {
           </Table>
         </CardContent>
       </Card>
-      <Pagination page={page} totalPages={totalPages} onChange={p => router.push(`/admin/order/refill/list?page=${p}${st ? `&status=${st}` : ''}`)} />
+      <Pagination page={page} totalPages={totalPages} onChange={p => router.push(`/admin/order/refill/list${qs({ page: String(p) })}`)} />
     </div>
   );
 }
