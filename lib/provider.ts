@@ -119,6 +119,7 @@ export async function executeProviderOrder(provider: any, order: any, extra: any
           quantity: String(order.quantity),
           custom_comments: order.custom_comments || '',
           username: order.username || '',
+          answer_number: order.answer_number ?? '',
           order_id: String(order.id),
         }
       : commonValues(provider, {
@@ -128,6 +129,7 @@ export async function executeProviderOrder(provider: any, order: any, extra: any
           quantity: String(order.quantity),
           custom_comments: order.custom_comments || '',
           username: order.username || '',
+          answer_number: order.answer_number ?? '',
           order_id: String(order.id),
           service: extra.service?.provider_service_id || '',
         });
@@ -497,7 +499,7 @@ export async function computeServiceRows(provider: any, data: any) {
     let type = 'DEFAULT';
     if (ov.custom_comments && rawType === String(ov.custom_comments)) type = 'CUSTOM_COMMENTS';
     else if (ov.comment_likes && rawType === String(ov.comment_likes)) type = 'COMMENT_LIKES';
-    else if (['COMMENT_LIKES', 'CUSTOM_COMMENTS', 'SUBSCRIPTIONS'].includes(rawType.toUpperCase())) type = rawType.toUpperCase();
+    else if (['COMMENT_LIKES', 'CUSTOM_COMMENTS', 'SUBSCRIPTIONS', 'POLL'].includes(rawType.toUpperCase())) type = rawType.toUpperCase();
     const refillValue = field(item, 'refill');
     const refillId = ['', 'false', '0'].includes(String(refillValue ?? ''))
       ? null : (String(refillValue) === 'true' ? pid : String(refillValue));

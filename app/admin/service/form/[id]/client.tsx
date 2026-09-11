@@ -77,6 +77,7 @@ export function ServiceFormClient({ service, categories, providers }: any) {
                   <option value="COMMENT_LIKES">Comment Likes</option>
                   <option value="CUSTOM_COMMENTS">Custom Comments</option>
                   <option value="SUBSCRIPTIONS">Subscriptions</option>
+                  <option value="POLL">Poll</option>
                 </select>
               </div>
               <div className="space-y-2">

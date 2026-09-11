@@ -16,6 +16,7 @@ export function OrderNewClient({ categories, services, customPrices = {}, balanc
   const [quantity, setQuantity] = useState('');
   const [customComments, setCustomComments] = useState('');
   const [username, setUsername] = useState('');
+  const [answerNumber, setAnswerNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -40,13 +41,14 @@ export function OrderNewClient({ categories, services, customPrices = {}, balanc
     if (qty < service.min || qty > service.max) return setError(`Jumlah minimal ${service.min}, maksimal ${service.max}.`);
     if (totalPrice > balance) return setError('Saldo tidak mencukupi.');
     if (service.type === 'CUSTOM_COMMENTS' && !customComments) return setError('Custom comments wajib diisi.');
+    if (service.type === 'POLL' && !(Number(answerNumber) >= 1)) return setError('Nomor jawaban poll wajib diisi.');
 
     setLoading(true);
     try {
       const res = await fetch('/api/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ service_id: Number(serviceId), target, quantity: qty, custom_comments: customComments, username }),
+        body: JSON.stringify({ service_id: Number(serviceId), target, quantity: qty, custom_comments: customComments, username, answer_number: answerNumber ? Number(answerNumber) : undefined }),
       });
       const data = await res.json();
       if (!data.status) return setError(data.message || 'Gagal membuat pesanan.');
@@ -147,6 +149,13 @@ export function OrderNewClient({ categories, services, customPrices = {}, balanc
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Username (pemilik komentar) *</label>
                 <Input placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
+              </div>
+            )}
+
+            {service?.type === 'POLL' && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Nomor Jawaban Poll *</label>
+                <Input type="number" min={1} placeholder="mis. 2" value={answerNumber} onChange={e => setAnswerNumber(e.target.value)} />
               </div>
             )}
 

@@ -76,6 +76,7 @@ enum ServiceType {
   COMMENT_LIKES
   CUSTOM_COMMENTS
   SUBSCRIPTIONS
+  POLL
 }
 
 enum Currency {
@@ -214,6 +215,7 @@ model Order {
   provider_status_log String?
   custom_comments     String?
   username            String?
+  answer_number       Int?
   ip_address          String?
   location            String?
   created_at          DateTime    @default(now())

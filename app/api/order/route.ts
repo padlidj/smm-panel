@@ -12,7 +12,7 @@ export async function POST(req: Request) {
 
   const userId = Number((session.user as any).id);
   const body = await req.json();
-  const { custom_comments, username } = body;
+  const { custom_comments, username, answer_number } = body;
   const service_id = positiveInt(body.service_id);
   const target = orderTarget(body.target);
   const quantity = positiveInt(body.quantity);
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
         user_id: userId, service_id: service.id, provider_id: service.provider_id,
         service_name: service.name, target, quantity, price: totalPrice, profit: totalProfit,
         status: 'PENDING', provider_order_log: DISPATCH_READY, ip_address: req.headers.get('x-real-ip') || '',
-        custom_comments, username,
+        custom_comments, username, answer_number: positiveInt(answer_number) ?? null,
       },
     });
   });

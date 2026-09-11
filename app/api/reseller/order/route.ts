@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   const user = await getApiUser(req, body);
   if (!user) return NextResponse.json({ status: false, message: 'Invalid API key' });
   // Standard SMM API param names (`service`, `id`) accepted alongside ours
-  const { custom_comments, username } = body;
+  const { custom_comments, username, answer_number } = body;
   const target = orderTarget(body.target);
   const service_id = positiveInt(body.service_id ?? body.service);
   const quantity = positiveInt(body.quantity);
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
         service_name: service.name, target, quantity, price: totalPrice, profit: totalProfit,
         status: 'PENDING', provider_order_log: DISPATCH_READY, is_api: true,
         ip_address: req.headers.get('x-real-ip') || '',
-        custom_comments, username,
+        custom_comments, username, answer_number: positiveInt(answer_number) ?? null,
       },
     });
   });
